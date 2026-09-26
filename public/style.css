@@ -90,9 +90,9 @@
   .train-row{grid-template-columns:68px 54px minmax(0,1fr) auto;grid-template-areas:"time train track status" "meta meta meta meta" "route route route route";column-gap:8px;row-gap:5px;padding:10px 10px 9px 13px;align-items:center}
   .time-cell{grid-area:time;align-self:start}.main-time{font-size:16px;letter-spacing:-.015em}.time small{margin-top:4px;font-size:8.5px}
   .train-cell{grid-area:train;align-self:start}.trainno{font-size:12.5px}.trainno small{margin-top:3px;font-size:9px}
-  .track-cell{grid-area:track;display:flex;align-items:center;gap:7px;min-width:0;text-align:left;font-size:12px!important;white-space:nowrap}
+  .track-cell{grid-area:track;display:flex;align-items:center;gap:10px;min-width:0;text-align:left;font-size:12px!important;white-space:nowrap}
   .track-value{display:inline-flex;align-items:baseline;white-space:nowrap}.track-label{display:inline;margin-right:2px;font-size:9px!important;color:#697581;font-weight:700}
-  .passing-label{display:inline-flex;align-items:center;min-height:20px;padding:2px 6px;border:1px solid #d6dde3;border-radius:5px;background:#f5f7f9;color:#596674;font-size:9px;font-weight:800;line-height:1;white-space:nowrap}
+  .passing-label{display:inline-flex;align-items:center;min-height:20px;padding:2px 6px;margin-left:4px;border:1px solid #d6dde3;border-radius:5px;background:#f5f7f9;color:#596674;font-size:9px;font-weight:800;line-height:1;white-space:nowrap}
   .desktop-passing{display:none}
   .status-cell{grid-area:status;align-self:start;text-align:right;white-space:nowrap;font-size:11.5px}.status-cell strong{line-height:1.25}.status-cell small{margin-top:3px}
   .type-cell{grid-area:meta;display:block;padding-top:1px!important;font-size:10.5px!important;font-weight:750;color:#43515e!important}.mobile-operator{display:inline;color:#697581;font-weight:650}
