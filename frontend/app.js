@@ -83,11 +83,19 @@ function drawSuggestions() {
   });
 }
 
+function resetFromToNow() {
+  if ($('date').value !== localDate(new Date())) return;
+  $('from').value = localTime(new Date());
+  autoFromNow = true;
+  syncPickerButtons();
+}
+
 function chooseSuggestion(index) {
   const x = suggestions[index];
   if (!x) return;
   $('location').value = x.name;
   $('location').dataset.code = x.code;
+  resetFromToNow();
   hideSuggestions();
   loadTrains();
 }
@@ -373,6 +381,7 @@ async function useMyLocation() {
       const x = await nearestLocation(pos.coords.latitude, pos.coords.longitude);
       $('location').value = x.name;
       $('location').dataset.code = x.code;
+      resetFromToNow();
       hideSuggestions();
       await loadTrains();
     } catch (e) { alert(e.message); }
