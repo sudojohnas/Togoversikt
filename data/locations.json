@@ -1,0 +1,2582 @@
+[
+  {
+    "name": "Agle",
+    "code": "AGL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Aker",
+    "code": "AKE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Akersvika Bp",
+    "code": "AVI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Alnabru",
+    "code": "ALB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Alvdal",
+    "code": "ALV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Arendal",
+    "code": "ADL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Arna",
+    "code": "ARN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Arteid Bp.",
+    "code": "ART",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Asker",
+    "code": "ASR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Askim",
+    "code": "ASM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Aspedammen",
+    "code": "ASP",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Asper",
+    "code": "ASE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Atna",
+    "code": "ATN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Audnedal",
+    "code": "AUD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Austvoll Bp",
+    "code": "AUS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ballerud Bp",
+    "code": "BAL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Barkåker",
+    "code": "BÅR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bekkedalshøgda",
+    "code": "BKH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bekkelaget",
+    "code": "BEK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Berekvam",
+    "code": "BER",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Berg",
+    "code": "BG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bergen",
+    "code": "BRG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bergheim",
+    "code": "BGH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bergseng",
+    "code": "BGG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bergsgrav",
+    "code": "BEG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bergsvika",
+    "code": "BVK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Berkåk",
+    "code": "BÅK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Billingstad",
+    "code": "BST",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjerka",
+    "code": "BJE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjorli",
+    "code": "BJO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjørge Bp",
+    "code": "BJG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Bjørgeseter",
+    "code": "BSR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjørkevoll",
+    "code": "BVO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjørnfjell",
+    "code": "BJF",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bjørnstad Bp",
+    "code": "BJS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Blaker",
+    "code": "BLK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bleiken Bp",
+    "code": "BLI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Blommenholm Bp.",
+    "code": "BLM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Bodø",
+    "code": "BO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Boganes",
+    "code": "BGN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bolna",
+    "code": "BOA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bolstadøyri",
+    "code": "BOL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Borgestad",
+    "code": "BOS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brakerøya",
+    "code": "BRA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Braskereidfoss",
+    "code": "BFS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Breiskallen Bp",
+    "code": "BRK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Brekka Bp",
+    "code": "BKK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Breland",
+    "code": "BRL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brennhaug",
+    "code": "BRH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brobekk",
+    "code": "BRB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brumunddal",
+    "code": "BRD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brusand",
+    "code": "BRS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bryn",
+    "code": "BR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bryne",
+    "code": "BRY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Brøttum",
+    "code": "BUM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bulken",
+    "code": "BUL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bø",
+    "code": "BØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Bøn",
+    "code": "BØN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dal",
+    "code": "DAL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dalane",
+    "code": "DNE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dale",
+    "code": "DL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Daler",
+    "code": "DLR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dallerud Bp",
+    "code": "DRU",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Darbu",
+    "code": "DAR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dilling",
+    "code": "DIL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Disenå",
+    "code": "DIS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Djupvik",
+    "code": "DJU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dombås",
+    "code": "DOM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dorr Bp",
+    "code": "DOR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Dovre",
+    "code": "DOV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Drammen",
+    "code": "DRM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Drangedal",
+    "code": "DRD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Drevvatn",
+    "code": "DVT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Driva Bp",
+    "code": "DRI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Drivstua",
+    "code": "DRS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dunderland",
+    "code": "DUN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Dønnum Bp",
+    "code": "DNM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Egersund",
+    "code": "EGS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Eidsvoll",
+    "code": "EVL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Eikonrød Bp",
+    "code": "EKØ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Eina",
+    "code": "EIN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Eiterstraum",
+    "code": "EIT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Elisenberg Bp.",
+    "code": "ELB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Elverum",
+    "code": "ELV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Enger Bp.",
+    "code": "ENG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Eriksrud",
+    "code": "ERU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Espa",
+    "code": "EPA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Evanger",
+    "code": "EVG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fagerhaug",
+    "code": "FGH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fagerlia Bp",
+    "code": "FGL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Fagernut",
+    "code": "FGN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fauske",
+    "code": "FAU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fetsund",
+    "code": "FET",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fidjetun",
+    "code": "FID",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Finse",
+    "code": "FIN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fjellhamar Bp.",
+    "code": "FHM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Fjellsrud Bp.",
+    "code": "FJR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flaa Bp",
+    "code": "FLAA",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flab Bp",
+    "code": "FLAB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flac Bp",
+    "code": "FLAC",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flad Bp",
+    "code": "FLAD",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flae Bp",
+    "code": "FLAE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flaf Bp",
+    "code": "FLAF",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flag Bp",
+    "code": "FLAG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flah Bp",
+    "code": "FLAH",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flai Bp",
+    "code": "FLAI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flaj Bp",
+    "code": "FLAJ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flak Bp",
+    "code": "FLAK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flal Bp",
+    "code": "FLAL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flam Bp",
+    "code": "FLAM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flan Bp",
+    "code": "FLAN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flao Bp",
+    "code": "FLAO",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flap Bp",
+    "code": "FLAP",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flaq Bp",
+    "code": "FLAQ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flar Bp",
+    "code": "FLAR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flas Bp",
+    "code": "FLAS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Flisa",
+    "code": "FLI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Flå",
+    "code": "FLÅ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Flåm",
+    "code": "FM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fokstua",
+    "code": "FOK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Follvell Bp",
+    "code": "FOL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Forus Bp",
+    "code": "FUS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Foss Bp",
+    "code": "FOS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Fredrikstad",
+    "code": "FRE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Frogner",
+    "code": "FRO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fron",
+    "code": "FRN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Frya Bp",
+    "code": "FRY",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Furuberget Bp",
+    "code": "FUB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Fåberg",
+    "code": "FÅB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Fåvang",
+    "code": "FÅV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Galleberg",
+    "code": "GAB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Galterud",
+    "code": "GLT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ganddal",
+    "code": "GAN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gardermoen",
+    "code": "GAR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gardsenden Bp",
+    "code": "GAE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Garli",
+    "code": "GAL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Geilo",
+    "code": "GLO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Geithus",
+    "code": "GHS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gjerstad",
+    "code": "GJE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gjøvik",
+    "code": "GJØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Glåmos",
+    "code": "GOS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gol",
+    "code": "GOL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gran Bp",
+    "code": "GRN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Granli Bp",
+    "code": "GLI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Grefsen",
+    "code": "GRE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Greåker Bp",
+    "code": "GRÅ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Grimsrud Bp.",
+    "code": "GRI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Grindvoll",
+    "code": "GVL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Grong",
+    "code": "GRG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Grorud",
+    "code": "GRO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Grovane",
+    "code": "GRV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Grua",
+    "code": "GRU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gudå",
+    "code": "GU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gulskogen",
+    "code": "GUL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gulsvik",
+    "code": "GUV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gunnarsrød Bp.",
+    "code": "GUN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Gvarv",
+    "code": "GV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Gyland",
+    "code": "GYL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Haga",
+    "code": "HAG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hakadal",
+    "code": "HAK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Halden",
+    "code": "HLD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hallingskeid",
+    "code": "HAL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Haltdalen",
+    "code": "HDN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hamar",
+    "code": "HMR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hanestad",
+    "code": "HAN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Harran",
+    "code": "HAR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hauerseter",
+    "code": "HSR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Haug",
+    "code": "HG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Haugan Bp",
+    "code": "HUG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Haugastøl",
+    "code": "HAU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Haugenstua Bp.",
+    "code": "HGS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Heggedal",
+    "code": "HEG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Heimdal",
+    "code": "HMD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Helgemo Bp",
+    "code": "HGM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hell",
+    "code": "HEL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Helldalsmo",
+    "code": "HDM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Helleland",
+    "code": "HLL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hellerud",
+    "code": "HLR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hellvik",
+    "code": "HEV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Herefoss",
+    "code": "HRF",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Heskestad",
+    "code": "HSK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hinna Bp.",
+    "code": "HIN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hjerkinn",
+    "code": "HJN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hjuksebø",
+    "code": "HBØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hobekk",
+    "code": "HOB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hognestad Bp",
+    "code": "HOG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hokksund",
+    "code": "HOK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hol",
+    "code": "HOL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Holm Bp.",
+    "code": "HOM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Holmestrand",
+    "code": "HSD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Holmlia",
+    "code": "HLM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Holmvassås Bp",
+    "code": "HVÅ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Holstad Bp.",
+    "code": "HOS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Holtsås Bp",
+    "code": "HÅB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hommelvik",
+    "code": "HMV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Horg Bp",
+    "code": "HRG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Horisontalen Bp",
+    "code": "HOR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hove",
+    "code": "HVE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hovin",
+    "code": "HOI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hunder Bp",
+    "code": "HER",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hundorp",
+    "code": "HUN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Huseby Bp.",
+    "code": "HBY",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hval",
+    "code": "HV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hvalstad",
+    "code": "HVA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hynnekleiv Bp",
+    "code": "HYK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Hølen",
+    "code": "HLN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Hønefoss",
+    "code": "HFS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Høvik",
+    "code": "HVK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Høye Bp",
+    "code": "HØY",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ingedal",
+    "code": "ING",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ise",
+    "code": "ISE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Jaren",
+    "code": "JAR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Jensrud",
+    "code": "JEN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Jessheim",
+    "code": "JEH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Jessnes",
+    "code": "JES",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Jevnaker",
+    "code": "JEV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kambo",
+    "code": "KAM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Katterat",
+    "code": "KAT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kirkenær",
+    "code": "KIR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kjelsås",
+    "code": "KJE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kjerringmyrene Bp.",
+    "code": "KJM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kjørum Bp",
+    "code": "KJØ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Klepp",
+    "code": "KLP",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kleppe Bp",
+    "code": "KPP",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kløfta",
+    "code": "KLØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kobbervik",
+    "code": "KOB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kokkerud Bp",
+    "code": "KOK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kolbotn",
+    "code": "KOL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kolstad Bp",
+    "code": "KOS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kongsberg",
+    "code": "KBG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kongsvinger",
+    "code": "KVG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kongsvoll",
+    "code": "KVL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Koppang",
+    "code": "KOP",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kopperå",
+    "code": "KPR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kornsjø",
+    "code": "KO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Krekling",
+    "code": "KRE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kristiansand",
+    "code": "KRS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Krogstad Bp",
+    "code": "KST",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kråkstad",
+    "code": "KRÅ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kråkvål Bp",
+    "code": "KRK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kutjern Bp",
+    "code": "KUT",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kvam",
+    "code": "KVA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Kvarehei Bp",
+    "code": "KVH",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Kvål Bp",
+    "code": "KÅL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Lagerud Bp.B",
+    "code": "LAB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Langeland",
+    "code": "LAL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Langemyr",
+    "code": "LMY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Langhus Bp",
+    "code": "LAH",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Langodden Bp",
+    "code": "LDN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Langset",
+    "code": "LAS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Langstein",
+    "code": "LST",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Larvik",
+    "code": "LVK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lassemoen",
+    "code": "LSM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lauve",
+    "code": "LAU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Leangen",
+    "code": "LEA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Leirsund Bp.",
+    "code": "LSB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Leivoll Bp",
+    "code": "LVL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ler",
+    "code": "LER",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lesja",
+    "code": "LES",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Levanger",
+    "code": "LEV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lilledal Bp",
+    "code": "LLD",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Lillehammer",
+    "code": "LHM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lillestrøm",
+    "code": "LLS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lindeberg",
+    "code": "LBG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lindmoen Bp",
+    "code": "LIN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Lisleby",
+    "code": "LBY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ljabru Bp.",
+    "code": "LBU",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ljan",
+    "code": "LJA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Losna",
+    "code": "LOS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lundamo",
+    "code": "LMO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lunde",
+    "code": "LUN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lunner Bp",
+    "code": "LNE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Lura",
+    "code": "LUR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lurudal Bp",
+    "code": "LDL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Lysaker",
+    "code": "LYS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lyser",
+    "code": "LSR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lønsdal",
+    "code": "LØN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Lørenskog",
+    "code": "LØR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Løten",
+    "code": "LØT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Magnor",
+    "code": "MAG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Majavatn",
+    "code": "MAJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Marnardal",
+    "code": "MDL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Marstein",
+    "code": "MAR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Martineåsen",
+    "code": "MÅS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Matrand",
+    "code": "MAT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Meheia",
+    "code": "MEH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Melhus",
+    "code": "MEL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mellingen Bp",
+    "code": "MLI",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Melvoll Bp.",
+    "code": "MVB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Midtsandan",
+    "code": "MSD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mjølfjell",
+    "code": "MFJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mjøndalen",
+    "code": "MJD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mo i Rana",
+    "code": "MO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Moelv",
+    "code": "MLV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Moi",
+    "code": "MOI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Molbekk Bp",
+    "code": "MOB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Monsrud",
+    "code": "MON",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mosjøen",
+    "code": "MSJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Moss",
+    "code": "MOS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Movatn",
+    "code": "MVT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Myra Bp",
+    "code": "MRA",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Myrane",
+    "code": "MNE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Myrdal",
+    "code": "MYR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Myrvoll",
+    "code": "MYV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mysen",
+    "code": "MYS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Mære",
+    "code": "MÆ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Møllerenga Bp",
+    "code": "MØL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Nakksjø",
+    "code": "NAK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Namsskogan",
+    "code": "NSK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Narvik",
+    "code": "NK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nelaug",
+    "code": "NEL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nesbyen",
+    "code": "NES",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Neslandsvatn",
+    "code": "NVT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nessa Bp",
+    "code": "NEA",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Nisterud Bp",
+    "code": "NIS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Nittedal",
+    "code": "NIT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nodeland",
+    "code": "NDL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nordagutu",
+    "code": "NGU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nordli Bp",
+    "code": "NOR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Nordstrand Bp.",
+    "code": "NOS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Notodden",
+    "code": "NTD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nykirke",
+    "code": "NYK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nypan",
+    "code": "NYP",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Nærbø",
+    "code": "NBØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Oggevatn",
+    "code": "OGV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ogna",
+    "code": "OGN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Olaløkka Bp.",
+    "code": "OLA",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Onsøy",
+    "code": "ONS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Oppdal",
+    "code": "OPD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Oppegård",
+    "code": "OPG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Opphus",
+    "code": "OPH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Orne elv Bp",
+    "code": "ORN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Orstad",
+    "code": "ORS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Os",
+    "code": "OS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Oslo S",
+    "code": "OSL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Oteråga",
+    "code": "OTR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Otta",
+    "code": "OTA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ottestad",
+    "code": "OTT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Porsgrunn",
+    "code": "PG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Potterud Bp",
+    "code": "POT",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Prestebakke Bp",
+    "code": "PTB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Rakkestad",
+    "code": "RST",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rallerud Bp",
+    "code": "RLR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ramstad Bp.",
+    "code": "RAM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Randklev Bp",
+    "code": "RAN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ranheim",
+    "code": "RHM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Reimegrend",
+    "code": "RMG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Reinsvoll",
+    "code": "RVO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rena",
+    "code": "REN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ringebu",
+    "code": "RBU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ringsaker Bp",
+    "code": "RKR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Rismyr Bp.",
+    "code": "RSM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Roa",
+    "code": "ROA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rognan",
+    "code": "ROG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rolvsøy",
+    "code": "RVY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rombak",
+    "code": "ROM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ronglan",
+    "code": "RLA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rosenholm Bp.",
+    "code": "ROH",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Rosten Bp",
+    "code": "RO",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Rotneim Bp",
+    "code": "RNM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Roven",
+    "code": "RVN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rudshøgda",
+    "code": "RUD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rudstad",
+    "code": "RAD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rygge",
+    "code": "RYG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Råde",
+    "code": "RÅD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Rånåsfoss",
+    "code": "RFS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Røra",
+    "code": "RØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Røros",
+    "code": "ROS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Røykås Bp.",
+    "code": "RÅS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Sagdalen Bp.",
+    "code": "SLN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Saggrenda",
+    "code": "SAG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sand",
+    "code": "SAD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandbu Bp",
+    "code": "SDB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Sandbukta",
+    "code": "SAB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sande Bp.",
+    "code": "SAE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Sandefjord",
+    "code": "SFJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sander",
+    "code": "SAN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandermosen",
+    "code": "SDM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandesund",
+    "code": "SDS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandnes",
+    "code": "SAS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandvatn",
+    "code": "SVT",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sandvika",
+    "code": "SV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sarpsborg",
+    "code": "SBO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sel",
+    "code": "SEL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Selje Bp.",
+    "code": "SLJ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Selsbakk",
+    "code": "SLB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Selåsvatn",
+    "code": "SÅV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sem",
+    "code": "SEM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Seterstøa",
+    "code": "SET",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Seut Bp",
+    "code": "SEU",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Singsås",
+    "code": "SIN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sira",
+    "code": "SIR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sjoa",
+    "code": "SJO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sjølyst Bp",
+    "code": "SJØ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skare Bp",
+    "code": "SRE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skarnes",
+    "code": "SKA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skatval",
+    "code": "SKV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skaugum Bp.",
+    "code": "SUM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skeievoll Bp",
+    "code": "SKE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ski",
+    "code": "SKI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skien",
+    "code": "SKN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skjeberg",
+    "code": "SKJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skjelbred Bp",
+    "code": "SJB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skjærli Bp",
+    "code": "SÆR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skoger Bp.",
+    "code": "SKG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skogn",
+    "code": "SGN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skollenborg",
+    "code": "SKL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skonseng",
+    "code": "SEG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skoppum",
+    "code": "SKP",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skorstøl",
+    "code": "SST",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skotselv",
+    "code": "SEV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skotterud",
+    "code": "SKO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Skrårud Bp.",
+    "code": "SKR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skåntjern Bp.",
+    "code": "SKÅ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Skøyen",
+    "code": "SKØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Slependen Bp.",
+    "code": "SLP",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Slørstad Bp.",
+    "code": "SLØ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Smørstein",
+    "code": "SMØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Snartemo",
+    "code": "SNA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Snåsa",
+    "code": "SNÅ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sokna",
+    "code": "SOK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Soknedal",
+    "code": "SDL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Solberg Bp.",
+    "code": "SBR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Solbråtan Bp.",
+    "code": "SBT",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Spikkestad",
+    "code": "SPI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Spydeberg",
+    "code": "SPG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stabekk",
+    "code": "STB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stange",
+    "code": "STG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stangerhaugen Bp.",
+    "code": "SHG",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Stanghelle",
+    "code": "STH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Starrgrasmyra",
+    "code": "SGM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stavanger",
+    "code": "STV",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stavne Bp",
+    "code": "SAV",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Steinberg",
+    "code": "SBG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Steinkjer",
+    "code": "STK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Steinsrud",
+    "code": "STE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stjørdal",
+    "code": "STJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stod",
+    "code": "STD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stokke",
+    "code": "SKK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Strandlykkja",
+    "code": "SLY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Straumsnes",
+    "code": "SMS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Stryken",
+    "code": "SY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Strømmen",
+    "code": "STN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Støe Bp",
+    "code": "SØE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Støren",
+    "code": "STØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Svenkerud Bp",
+    "code": "SVK",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Svenningdal",
+    "code": "SGD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Søberg",
+    "code": "SØB",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sørli",
+    "code": "SRI",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sørumsand",
+    "code": "SØR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Sørumåsen Bp.",
+    "code": "SÅS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Tangen",
+    "code": "TAN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tanumåsen Bp.",
+    "code": "TMÅ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Tinnoset",
+    "code": "TIN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tolga",
+    "code": "TOL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tomter",
+    "code": "TOM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Torpo",
+    "code": "TPO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Trengereid",
+    "code": "TRD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tretten",
+    "code": "TRE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Trofors",
+    "code": "TRO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Trolldalen",
+    "code": "TDA",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Trondheim S",
+    "code": "TND",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tunga",
+    "code": "TNG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tusse Bp.",
+    "code": "TUS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Tveter Bp.",
+    "code": "TVE",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Tynset",
+    "code": "TYN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tyristrand",
+    "code": "TYR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tønsberg",
+    "code": "TBG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Tøyen Bp",
+    "code": "TØN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ualand",
+    "code": "UAL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ulriken Bp",
+    "code": "ULR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ulsberg",
+    "code": "UBG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ulvin Bp",
+    "code": "ULV",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Urdland",
+    "code": "URD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ustaoset",
+    "code": "UST",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vaksdal",
+    "code": "VAD",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vakås Bp.",
+    "code": "VÅS",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Valebø",
+    "code": "VBØ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Varhaug",
+    "code": "VHG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vatnamot Bp",
+    "code": "VTN",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Vaulen",
+    "code": "VLU",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vaulen Bp",
+    "code": "VLU",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Vegårshei",
+    "code": "VGH",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Veldre Bp",
+    "code": "VEL",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Veme",
+    "code": "VEM",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Venjar Bp",
+    "code": "VEJ",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Vennesla",
+    "code": "VNL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Verdal",
+    "code": "VDL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Verma",
+    "code": "VER",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vestby",
+    "code": "VBY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vestfossen",
+    "code": "VFS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vieren Bp",
+    "code": "VIR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Vigrestad",
+    "code": "VIG",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vikersund",
+    "code": "VKS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vikhammer",
+    "code": "VHR",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vinstra",
+    "code": "VIN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Voss",
+    "code": "VOS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Vudu Bp",
+    "code": "VUD",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Vålåsjø",
+    "code": "VÅL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ygre Bp",
+    "code": "YGR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Åbogen",
+    "code": "ÅBO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åkrene Bp",
+    "code": "AKR",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ål",
+    "code": "ÅL",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åmot",
+    "code": "ÅMO",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åndalsnes",
+    "code": "ÅND",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åneby",
+    "code": "ÅBY",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Årnes",
+    "code": "ÅRN",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ås",
+    "code": "ÅS",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åsen",
+    "code": "ÅSE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Åstaddalen Bp.",
+    "code": "ÅSA",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ørmen Bp",
+    "code": "ØRM",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Ørtfjell",
+    "code": "ØFJ",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Ørvik",
+    "code": "ØRK",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Østborg Bp",
+    "code": "ØSB",
+    "kind": "Blokkpost"
+  },
+  {
+    "name": "Øyer",
+    "code": "ØYE",
+    "kind": "Stasjon"
+  },
+  {
+    "name": "Øysteinstul",
+    "code": "ØYS",
+    "kind": "Stasjon"
+  }
+]

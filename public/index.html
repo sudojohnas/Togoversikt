@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f6f8">
+  <title>Togoversikt.no</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="topbar">
+      <div><h1>Togoversikt.no</h1></div>
+      <button id="share" class="share-btn" type="button" aria-label="Del Togoversikt.no"><span class="share-icon" aria-hidden="true">↗</span><span>Del siden</span></button>
+    </header>
+
+    <section class="panel filters">
+      <div class="field location-field">
+        <label for="location">Stasjon / blokkpost</label>
+        <div class="location-input-row">
+          <input id="location" value="" placeholder="Søk etter sted …" autocomplete="off" spellcheck="false" aria-autocomplete="list">
+          <button id="locate" type="button" class="secondary locate-inline">Min posisjon</button>
+        </div>
+        <div id="suggestions" class="suggestions" hidden></div>
+      </div>
+      <div class="time-filter-row custom-filter-row">
+        <div class="compact-picker-field"><label>Dato</label><button id="date-display" class="picker-trigger" type="button"></button><input id="date" type="hidden" value=""></div>
+        <div class="compact-picker-field"><label>Fra</label><button id="from-display" class="picker-trigger" type="button"></button><input id="from" type="hidden" value=""></div>
+        <div class="compact-picker-field"><label>Til</label><button id="to-display" class="picker-trigger" type="button"></button><input id="to" type="hidden" value="23:59"></div>
+      </div>
+    </section>
+    <section id="welcome" class="welcome panel">
+      <div class="welcome-copy">
+        <div class="kicker">Kom i gang</div>
+        <h2>Finn tog og togtider</h2>
+        <p>Søk etter en stasjon eller blokkpost, eller bruk posisjonen din for å velge nærmeste tilgjengelige punkt.</p>
+      </div>
+      <div class="welcome-grid">
+        <div><strong>Live</strong><span>Dagens avganger, passeringer, forsinkelser og innstillinger fra Bane NOR SIRI.</span></div>
+        <div><strong>Rute</strong><span>Trykk på et tog for å se hele ruten, passerte punkter og siste registrerte sted.</span></div>
+        <div><strong>Plan</strong><span>Velg en annen dato for å hente planlagte tog fra rutegrafen.</span></div>
+      </div>
+      <div class="welcome-warning">
+        <strong>OBS</strong>
+        <p>Infoen er hentet fra Bane NOR, men skal kun brukes som informasjon og må ikke brukes som sikkerhetskritisk grunnlag. Er du HSV og skal ut i sporet, skal du følge gjeldende Bane NOR-prosedyrer og avklare med togleder – denne siden er aldri grunnlag for å gå ut i sporet. Er du privatperson, skal du ikke ut i sporet; ferdsel i sporområdet er forbudt.</p>
+      </div>
+    </section>
+
+    <div id="results" hidden>
+      <section class="summary">
+        <div><button id="filter-open" class="summary-filter" type="button"><strong>Filter</strong><span id="filter-summary">Alle tog og spor</span></button></div>
+        <div id="source-card" class="summary-update-card" role="button" tabindex="0" aria-label="Oppdater togdata"><strong id="source" class="summary-refresh">Oppdater</strong><span id="updated">Sist oppdatert –</span></div>
+      </section>
+
+      <div id="update-notice" class="update-notice" hidden><span>Nye togdata er tilgjengelige.</span><button id="apply-update" type="button">Oppdater</button></div>
+
+      <section class="panel table-panel">
+        <table>
+          <thead><tr><th>Tid</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
+          <tbody id="rows"><tr><td colspan="7" class="empty">Henter togdata …</td></tr></tbody>
+        </table>
+      </section>
+      <p class="note">Kilde: Bane NOR SIRI. Sanntidsdata kan være ufullstendige og skal ikke brukes som sikkerhetskritisk informasjon.</p>
+    </div>
+  </main>
+
+  <dialog id="filter-dialog" class="filter-dialog">
+    <div class="filter-sheet">
+      <div class="filter-head"><div><div class="kicker">Visning</div><h2>Filter</h2></div><button id="filter-close" type="button" aria-label="Lukk">×</button></div>
+      <div class="filter-group"><h3>Togtype</h3><div id="filter-categories" class="filter-options"></div></div>
+      <div class="filter-group"><h3>Spor</h3><div id="filter-tracks" class="filter-options"></div></div>
+      <div class="filter-actions-dialog"><button id="filter-reset" type="button" class="secondary">Vis alle</button><button id="filter-done" type="button">Ferdig</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="value-picker" class="value-picker">
+    <div class="picker-sheet">
+      <div class="picker-head"><strong id="picker-title">Velg</strong><button id="picker-close" type="button" aria-label="Lukk">×</button></div>
+      <div id="picker-body"></div>
+    </div>
+  </dialog>
+
+  <dialog id="detail" class="detail">
+    <button id="close-detail" class="close" aria-label="Lukk">×</button>
+    <div id="detail-content"></div>
+  </dialog>
+  <script src="/app.js"></script>
+</body>
+</html>
