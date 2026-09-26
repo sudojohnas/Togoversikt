@@ -96,7 +96,7 @@ function callStatus(call) {
   const raw=String(call?.status_raw || '').toLowerCase();
   if(raw==='cancelled') return 'Innstilt';
   const delay=delayMinutes(call);
-  if(raw==='delayed' || (delay!=null && delay>=3)) return `Forsinket +${Math.max(delay || 0,0)} min`;
+  if(raw==='delayed' || (delay!=null && delay>=1)) return `Forsinket +${Math.max(delay || 0,0)} min`;
   if(call?.actual_iso || call?.state==='recorded') return 'Passert';
   if(['ontime','on_time'].includes(raw)) return 'I rute';
   // SIRI Stop Monitoring commonly reports "noReport" even when it supplies an
