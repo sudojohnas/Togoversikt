@@ -101,11 +101,3 @@
   .train-row.passed .route-cell,.train-row.passed .type-cell{color:#697581!important}
   .passing-badge{margin-left:5px;font-size:8px}
 }
-
-/* Togoversikt brand */
-.brand-heading{margin:0;line-height:1}
-.brand{display:inline-flex;align-items:center;gap:10px;color:#17232b;text-decoration:none;min-width:0}
-.brand img{display:block;width:64px;height:64px;flex:0 0 auto}
-.brand span{font-size:32px;font-weight:800;letter-spacing:-.035em;white-space:nowrap}
-@media(max-width:720px){.brand{gap:7px}.brand img{width:50px;height:50px}.brand span{font-size:24px}.topbar{gap:10px}}
-@media(max-width:390px){.brand img{width:44px;height:44px}.brand span{font-size:21px}.share-btn span:not(.share-icon){display:none}.share-btn{width:40px;padding:0;justify-content:center}}
