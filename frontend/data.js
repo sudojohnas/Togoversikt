@@ -77,6 +77,7 @@ function parseCall(call={}, state='planned') {
     actual_arrival_iso:actualArr, actual_departure_iso:actualDep,
     planned:isoClock(planned), expected:isoClock(expected), actual:isoClock(actual),
     platform:call.DeparturePlatformName || call.ArrivalPlatformName || '',
+    passing:[call.DepartureBoardingActivity,call.ArrivalBoardingActivity].some(v=>String(v || '').toLowerCase()==='passthru'),
     status_raw:cancelled?'cancelled':raw, state,
   };
 }
@@ -198,8 +199,8 @@ async function parseTogkart(data) {
         expected_arrival_iso:expectedArr, expected_departure_iso:expectedDep,
         actual_arrival_iso:actualArr, actual_departure_iso:actualDep,
         planned:isoClock(planned), expected:isoClock(expected), actual:isoClock(actual),
-        platform:String(stop.track ?? stop.planned_track ?? ''), status_raw:cancelled?'cancelled':'',
-        state:(actualArr || actualDep)?'recorded':'estimated', activity:stop.activity || ''
+        platform:String(stop.track ?? stop.planned_track ?? ''), passing:String(stop.activity || '').toUpperCase()==='P',
+        status_raw:cancelled?'cancelled':'', state:(actualArr || actualDep)?'recorded':'estimated', activity:stop.activity || ''
       };
     });
     if(!route.length) continue;
@@ -234,7 +235,7 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime) {
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:call.planned,expected_time:call.expected,actual_time:call.actual,
-      platform:call.platform,status:journeyCallStatus(journey,call),current_location:current?.name || null,source:journey.source});
+      platform:call.platform,passing:Boolean(call.passing),status:journeyCallStatus(journey,call),current_location:current?.name || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
@@ -283,7 +284,7 @@ function parseSm(xml, locationCode, date, fromTime, toTime) {
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
-      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,status:smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
+      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,passing:Boolean(c.passing),status:smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
@@ -331,7 +332,7 @@ async function enrichSmItems(items, locationCode) {
     const current=currentPosition(journey);
     return {...item,
       planned_time:call.planned || item.planned_time, expected_time:call.expected || item.expected_time,
-      actual_time:call.actual || item.actual_time, platform:call.platform || item.platform,
+      actual_time:call.actual || item.actual_time, platform:call.platform || item.platform, passing:Boolean(call.passing || item.passing),
       status:journeyCallStatus(journey,call), current_location:current?.name || null, source:'Bane NOR SIRI ET'};
   });
 }
@@ -341,7 +342,22 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const historical=minutes(toTime)<minutes(nowOslo) || minutes(fromTime)<minutes(nowOslo)-30;
     if(historical) {
       const et=await getLiveEt();
-      return {items:queryDataset(et,locationCode,date,fromTime,toTime),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+      const etItems=queryDataset(et,locationCode,date,fromTime,toTime);
+      try {
+        const live=await getTogkart();
+        const liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime));
+        const merged=new Map(etItems.map(item=>[item.journey_id,item]));
+        for(const item of liveItems) {
+          const base=merged.get(item.journey_id);
+          merged.set(item.journey_id,base?{...base,...item,
+            origin:base.origin || item.origin,destination:base.destination || item.destination,
+            operator:base.operator || item.operator,category:base.category || item.category,
+            line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
+        }
+        const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
+        return {items,source_time:live.source_time || et.source_time,mode:'live',location,location_code:locationCode,date};
+      } catch {}
+      return {items:etItems,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
     }
     const span=Math.max(1,minutes(toTime)-minutes(fromTime));
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,fromTime),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
@@ -375,12 +391,12 @@ function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
   const currentIndex=current ? journey.route.indexOf(current) : -1;
   const route=journey.route.map((call,index)=>({code:call.code,name:call.name,planned:call.planned,expected:call.expected,actual:call.actual,
-    platform:call.platform,status:currentIndex>=0 && index<currentIndex?'Passert':journeyCallStatus(journey,call),
+    platform:call.platform,passing:Boolean(call.passing),status:currentIndex>=0 && index<currentIndex?'Passert':journeyCallStatus(journey,call),
     state:currentIndex>=0 && index<currentIndex?'recorded':current===call?'current':call.state,selected:call.code===locationCode}));
   const selectedIndex=selected ? journey.route.indexOf(selected) : -1;
   const selectedStatus=selected ? (currentIndex>=0 && selectedIndex<currentIndex?'Passert':journeyCallStatus(journey,selected)) : '–';
   return {journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,operator:journey.operator,
-    origin:journey.origin,destination:journey.destination,status:selectedStatus,selected_time:selected?isoClock(callIso(selected)):null,
+    origin:journey.origin,destination:journey.destination,status:selectedStatus,passing:Boolean(selected?.passing),selected_time:selected?isoClock(callIso(selected)):null,
     current_location:current?.name || 'Ikke registrert ennå',route,source:journey.source,source_time:sourceTime};
 }
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {

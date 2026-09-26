@@ -149,7 +149,7 @@ function renderTrainRows() {
     <td class="time time-cell">${timeCell(x)}</td>
     <td class="trainno train-cell">${esc(x.train_no)}${x.line && x.line !== '-' ? `<small>${esc(x.line)}</small>` : ''}</td>
     <td class="track-cell"><span class="track-label">Spor </span>${esc(x.platform || '–')}</td>
-    <td class="type-text type-cell">${esc(x.category)}</td>
+    <td class="type-text type-cell">${esc(x.category)}${x.passing ? '<small class="passing-label">(passerende)</small>' : ''}</td>
     <td class="operator-cell">${esc(x.operator)}</td>
     <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}</td>
     <td class="status-text status-cell">${statusCell(x)}</td>
@@ -249,7 +249,7 @@ async function openDetail(journeyId, force=false) {
       const cls = stop.state === 'current' ? 'current' : stop.state === 'recorded' ? 'passed' : 'upcoming';
       return `<div class="route-stop ${cls} ${stop.selected ? 'selected' : ''}">
         <div class="route-marker"></div>
-        <div><strong>${esc(stop.name)} <small>${esc(stop.code || '')}</small></strong>
+        <div><strong>${esc(stop.name)} <small>${esc(stop.code || '')}</small>${stop.passing ? '<em class="passing-badge">Passerende</em>' : ''}</strong>
         <span>${routeTime(stop)}${stop.platform ? ` · spor ${esc(stop.platform)}` : ''}${stop.status === 'Innstilt' ? ' · innstilt' : ''}</span></div>
       </div>`;
     }).join('');
@@ -257,7 +257,8 @@ async function openDetail(journeyId, force=false) {
       <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div><button id="detail-refresh" class="detail-refresh" type="button">Oppdater</button></div>
       <div class="detail-grid">
         <div><span>Operatør</span><strong>${esc(x.operator)}</strong></div>
-        <div><span>Status ved valgt punkt</span><strong>${esc(x.status)}</strong></div>
+        <div><span>Status ved valgt punkt</span><strong>${x.passing ? 'Passerende · ' : ''}${esc(x.status)}</strong></div>
+        ${x.passing ? '<div><span>Stopp ved valgt punkt</span><strong>Nei – passerer uten stopp</strong></div>' : ''}
         <div><span>Siste registrerte punkt</span><strong>${esc(x.current_location)}</strong></div>
       </div>
       <h3>Rute og registrerte passeringer</h3>
