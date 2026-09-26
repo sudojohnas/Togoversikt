@@ -46,10 +46,12 @@ async function proxyNearest(request) {
   }
   upstream.searchParams.set('point.lat', incoming.searchParams.get('lat'));
   upstream.searchParams.set('point.lon', incoming.searchParams.get('lon'));
-  upstream.searchParams.set('size', '10');
+  upstream.searchParams.set('size', '100');
   upstream.searchParams.set('lang', 'no');
   upstream.searchParams.set('layers', 'venue');
   upstream.searchParams.set('categories', 'railStation');
+  upstream.searchParams.set('boundary.country', 'NOR');
+  upstream.searchParams.set('boundary.circle.radius', '20000');
   const response = await fetch(upstream.toString(), {
     headers: { 'ET-Client-Name': 'johnas-togoversikt' },
     cf: { cacheTtl: 60 },

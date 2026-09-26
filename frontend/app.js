@@ -383,6 +383,7 @@ async function useMyLocation() {
       $('location').dataset.code = x.code;
       resetFromToNow();
       hideSuggestions();
+      btn.textContent = 'Finner tog';
       await loadTrains();
     } catch (e) { alert(e.message); }
     finally { btn.disabled = false; btn.textContent = 'Min posisjon'; }
