@@ -173,7 +173,9 @@ function updateFilterSummary() {
 }
 
 function renderFilterOptions() {
-  const cats = [...new Set(lastTrainItems.map(x => x.category || 'Ukjent'))].sort((a,b) => categoryLabel(a).localeCompare(categoryLabel(b), 'no'));
+  const alwaysCategories = ['Persontog', 'Godstog', 'Arbeidstog'];
+  const cats = [...new Set([...alwaysCategories, ...lastTrainItems.map(x => x.category || 'Ukjent')])]
+    .sort((a,b) => categoryLabel(a).localeCompare(categoryLabel(b), 'no'));
   const tracks = [...new Set(lastTrainItems.map(trackKey))].sort((a,b) => a.localeCompare(b, 'no', {numeric:true}));
   $('filter-categories').innerHTML = cats.map(x => `<label class="filter-option"><input type="checkbox" data-filter-category="${esc(x)}" ${hiddenCategories.has(x) ? '' : 'checked'}><span>${esc(categoryLabel(x))}</span></label>`).join('') || '<p class="muted">Ingen togtyper tilgjengelig.</p>';
   $('filter-tracks').innerHTML = tracks.map(x => `<label class="filter-option"><input type="checkbox" data-filter-track="${esc(x)}" ${hiddenTracks.has(x) ? '' : 'checked'}><span>${x === '–' ? 'Ukjent spor' : `Spor ${esc(x)}`}</span></label>`).join('') || '<p class="muted">Ingen spor tilgjengelig.</p>';
@@ -402,8 +404,8 @@ const SHARE_URL = 'https://togoversikt.no';
 async function shareSite() {
   const btn = $('share');
   const payload = {
-    title: 'Togoversikt.no',
-    text: 'Se tog, passeringer og trafikkstatus på Togoversikt.no',
+    title: 'Togoversikt',
+    text: 'Se tog, passeringer og trafikkstatus på Togoversikt',
     url: SHARE_URL,
   };
   try {

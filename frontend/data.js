@@ -85,6 +85,7 @@ function category(feature='', product='', operator='') {
   if(operator==='BN') return 'Arbeidstog';
   if(operator==='FLY') return 'Persontog';
   const f=String(feature).toLowerCase(), p=String(product).toUpperCase();
+  if(p==='A2') return 'Arbeidstog';
   if(f==='freighttrain' || f==='goodstrain') return 'Godstog';
   if(f==='passengertrain') return 'Persontog';
   if(p==='GMB') return 'Godstog';
@@ -178,6 +179,7 @@ function epochOsloIso(value) {
 function togkartCategory(fare) {
   if(fare?.company==='BN') return 'Arbeidstog';
   const kind=String(fare?.train_kind || '').toUpperCase();
+  if(kind==='AT' || kind==='TRT') return 'Arbeidstog';
   if(kind==='GT' || kind==='EGT') return 'Godstog';
   if(kind==='PT' || kind==='EPT') return 'Persontog';
   return category('',fare?.train_type || '',fare?.company || '');
