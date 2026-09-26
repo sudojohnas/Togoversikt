@@ -99,6 +99,10 @@ function callStatus(call) {
   if(raw==='delayed' || (delay!=null && delay>=3)) return `Forsinket +${Math.max(delay || 0,0)} min`;
   if(call?.actual_iso || call?.state==='recorded') return 'Passert';
   if(['ontime','on_time'].includes(raw)) return 'I rute';
+  // SIRI Stop Monitoring commonly reports "noReport" even when it supplies an
+  // expected time. In that case the expected-vs-planned deviation is the useful
+  // live signal: under the delay threshold means the train is currently in route.
+  if(call?.expected_iso && delay!=null) return 'I rute';
   return 'Planlagt';
 }
 function parseEt(xml) {
