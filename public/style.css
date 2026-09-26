@@ -82,5 +82,22 @@
 @media(max-width:720px){.detail-head{padding-right:38px;gap:10px}.detail-refresh{height:34px;padding:0 10px;font-size:11px}}
 
 /* Pass-through train labels */
-.passing-label{display:inline-block;margin-right:7px;font-size:10px;font-weight:800;color:#697581;white-space:nowrap;text-transform:none;letter-spacing:0}.passing-badge{display:inline-block;margin-left:7px;padding:2px 5px;border-radius:4px;background:#eef2f5;color:#55616c;font-size:9px;font-style:normal;font-weight:800;text-transform:uppercase;letter-spacing:.04em;vertical-align:2px}
-@media(max-width:720px){.status-cell:has(.passing-label){display:flex;align-items:center;justify-content:space-between;gap:7px;text-align:left}.status-cell:has(.passing-label)>strong{margin-left:auto;text-align:right}.passing-label{margin:0;font-size:9px}.passing-badge{margin-left:5px;font-size:8px}}
+.passing-label{display:none}.desktop-passing{display:block;margin-bottom:2px;font-size:9px;font-weight:800;color:#697581}.passing-badge{display:inline-block;margin-left:7px;padding:2px 5px;border-radius:4px;background:#eef2f5;color:#55616c;font-size:9px;font-style:normal;font-weight:800;text-transform:none;letter-spacing:0;vertical-align:2px}.mobile-operator{display:none}
+
+
+/* Refined mobile train cards */
+@media(max-width:720px){
+  .train-row{grid-template-columns:68px 54px minmax(0,1fr) auto;grid-template-areas:"time train track status" "meta meta meta meta" "route route route route";column-gap:8px;row-gap:5px;padding:10px 10px 9px 13px;align-items:center}
+  .time-cell{grid-area:time;align-self:start}.main-time{font-size:16px;letter-spacing:-.015em}.time small{margin-top:4px;font-size:8.5px}
+  .train-cell{grid-area:train;align-self:start}.trainno{font-size:12.5px}.trainno small{margin-top:3px;font-size:9px}
+  .track-cell{grid-area:track;display:flex;align-items:center;gap:7px;min-width:0;text-align:left;font-size:12px!important;white-space:nowrap}
+  .track-value{display:inline-flex;align-items:baseline;white-space:nowrap}.track-label{display:inline;margin-right:2px;font-size:9px!important;color:#697581;font-weight:700}
+  .passing-label{display:inline-flex;align-items:center;min-height:20px;padding:2px 6px;border:1px solid #d6dde3;border-radius:5px;background:#f5f7f9;color:#596674;font-size:9px;font-weight:800;line-height:1;white-space:nowrap}
+  .desktop-passing{display:none}
+  .status-cell{grid-area:status;align-self:start;text-align:right;white-space:nowrap;font-size:11.5px}.status-cell strong{line-height:1.25}.status-cell small{margin-top:3px}
+  .type-cell{grid-area:meta;display:block;padding-top:1px!important;font-size:10.5px!important;font-weight:750;color:#43515e!important}.mobile-operator{display:inline;color:#697581;font-weight:650}
+  .operator-cell{display:none}
+  .route-cell{grid-area:route;margin-top:1px;padding-top:6px!important;border-top:1px solid rgba(0,0,0,.07)!important;font-size:11.5px;line-height:1.25;color:#374552}
+  .train-row.passed .route-cell,.train-row.passed .type-cell{color:#697581!important}
+  .passing-badge{margin-left:5px;font-size:8px}
+}
