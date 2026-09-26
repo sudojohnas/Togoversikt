@@ -337,13 +337,18 @@ function renderCalendar() {
 function renderTimePicker(target) {
   const input=$(target);
   let [h,m]=input.value.split(':').map(Number);
+  let pickedNow=false;
+  const canUseNow=target==='from' && $('date').value===localDate(new Date());
+  const nowButton=canUseNow?'<button id="time-now" class="time-now" type="button">Nå</button>':'';
   $('picker-title').textContent=target==='from'?'Velg fra-tid':'Velg til-tid';
-  $('picker-body').innerHTML=`<div class="time-stepper"><div><button data-dh="1">+</button><strong id="pick-hour">${pad(h)}</strong><button data-dh="-1">−</button><span>time</span></div><b>:</b><div><button data-dm="5">+</button><strong id="pick-minute">${pad(m)}</strong><button data-dm="-5">−</button><span>min</span></div></div><div class="time-quick"><button data-time="00:00">00:00</button><button data-time="06:00">06:00</button><button data-time="12:00">12:00</button><button data-time="18:00">18:00</button><button data-time="23:59">23:59</button></div><button id="time-done" class="picker-done" type="button">Ferdig</button>`;
+  $('picker-body').innerHTML=`<div class="time-stepper"><div><button data-dh="1">+</button><strong id="pick-hour">${pad(h)}</strong><button data-dh="-1">−</button><span>time</span></div><b>:</b><div><button data-dm="5">+</button><strong id="pick-minute">${pad(m)}</strong><button data-dm="-5">−</button><span>min</span></div></div><div class="time-quick ${canUseNow?'has-now':''}">${nowButton}<button data-time="00:00">00:00</button><button data-time="06:00">06:00</button><button data-time="12:00">12:00</button><button data-time="18:00">18:00</button><button data-time="23:59">23:59</button></div><button id="time-done" class="picker-done" type="button">Ferdig</button>`;
   const paint=()=>{$('pick-hour').textContent=pad(h);$('pick-minute').textContent=pad(m);};
-  document.querySelectorAll('[data-dh]').forEach(b=>b.onclick=()=>{h=(h+Number(b.dataset.dh)+24)%24;paint();});
-  document.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>{m=(m+Number(b.dataset.dm)+60)%60;paint();});
-  document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{[h,m]=b.dataset.time.split(':').map(Number);paint();});
-  $('time-done').onclick=()=>{input.value=`${pad(h)}:${pad(m)}`;if(target==='from') autoFromNow=false;syncPickerButtons();$('value-picker').close();if($('location').dataset.code) loadTrains();};
+  const manual=()=>{pickedNow=false;};
+  document.querySelectorAll('[data-dh]').forEach(b=>b.onclick=()=>{manual();h=(h+Number(b.dataset.dh)+24)%24;paint();});
+  document.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>{manual();m=(m+Number(b.dataset.dm)+60)%60;paint();});
+  document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{manual();[h,m]=b.dataset.time.split(':').map(Number);paint();});
+  if(canUseNow) $('time-now').onclick=()=>{[h,m]=localTime(new Date()).split(':').map(Number);pickedNow=true;paint();};
+  $('time-done').onclick=()=>{input.value=`${pad(h)}:${pad(m)}`;if(target==='from') autoFromNow=pickedNow;syncPickerButtons();$('value-picker').close();if($('location').dataset.code) loadTrains();};
 }
 $('date-display').onclick=()=>openPicker('date');
 $('from-display').onclick=()=>openPicker('from');
