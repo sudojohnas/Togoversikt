@@ -223,7 +223,7 @@ async function loadTrains() {
 }
 function routeTime(stop) {
   if (stop.status === 'Passert') return `${esc(stop.actual || stop.expected || stop.planned || '–')} · Passert`;
-  if (stop.actual) return `${esc(stop.actual)} · Passert`;
+  if (stop.actual) return `${esc(stop.actual)}`;
   if (stop.expected && stop.planned && stop.expected !== stop.planned) return `${esc(stop.expected)} · Planlagt ${esc(stop.planned)}`;
   if (stop.expected) return `${esc(stop.expected)}`;
   if (stop.planned) return `${esc(stop.planned)} · Planlagt`;

@@ -13,6 +13,7 @@ const parser = new XMLParser({
 const arr = value => value == null ? [] : Array.isArray(value) ? value : [value];
 let locationsPromise = null;
 let liveEtCache = null;
+let togkartCache = null;
 const planCache = new Map();
 const filteredEtCache = new Map();
 
@@ -163,9 +164,66 @@ function parsePt(xml) {
   }
   return {journeys,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
 }
+function epochOsloIso(value) {
+  if(!value) return '';
+  const d=new Date(Number(value)*1000);
+  if(Number.isNaN(d.getTime())) return '';
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{
+    timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+  }).formatToParts(d).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+  const date=`${parts.year}-${parts.month}-${parts.day}`, time=`${parts.hour}:${parts.minute}:${parts.second}`;
+  return `${date}T${time}${offsetFor(date,`${parts.hour}:${parts.minute}`)}`;
+}
+function togkartCategory(fare) {
+  if(fare?.company==='BN') return 'Arbeidstog';
+  const kind=String(fare?.train_kind || '').toUpperCase();
+  if(kind==='GT' || kind==='EGT') return 'Godstog';
+  if(kind==='PT' || kind==='EPT') return 'Persontog';
+  return category('',fare?.train_type || '',fare?.company || '');
+}
+async function parseTogkart(data) {
+  const locs=await locations(), names=new Map(locs.map(x=>[x.code,x.name]));
+  const journeys=[];
+  for(const fare of data?.Fares || []) {
+    const route=(fare.stops || []).map(stop=>{
+      const aimedArr=epochOsloIso(stop.sta), aimedDep=epochOsloIso(stop.std);
+      const expectedArr=epochOsloIso(stop.eta), expectedDep=epochOsloIso(stop.etd);
+      const actualArr=epochOsloIso(stop.ata), actualDep=epochOsloIso(stop.atd);
+      const planned=aimedDep || aimedArr, expected=expectedDep || expectedArr, actual=actualDep || actualArr;
+      const cancelled=stop.cancel && stop.cancel!=='N';
+      return {
+        code:stop.city || '', name:names.get(stop.city) || stop.city || '',
+        planned_iso:planned, expected_iso:expected, actual_iso:actual,
+        aimed_arrival_iso:aimedArr, aimed_departure_iso:aimedDep,
+        expected_arrival_iso:expectedArr, expected_departure_iso:expectedDep,
+        actual_arrival_iso:actualArr, actual_departure_iso:actualDep,
+        planned:isoClock(planned), expected:isoClock(expected), actual:isoClock(actual),
+        platform:String(stop.track ?? stop.planned_track ?? ''), status_raw:cancelled?'cancelled':'',
+        state:(actualArr || actualDep)?'recorded':'estimated', activity:stop.activity || ''
+      };
+    });
+    if(!route.length) continue;
+    const operator=fare.company || '';
+    journeys.push({
+      journey_id:fare.train_id || `${fare.train_no || '–'}:${isoDate(route[0]?.planned_iso || '')}`,
+      train_no:String(fare.train_no ?? '–'), line:fare.line_no || '', operator_code:operator,
+      operator:fare.company_name || OPERATOR_NAMES[operator] || operator || 'Ukjent', category:togkartCategory(fare),
+      origin:names.get(fare.origin) || fare.origin || route[0].name,
+      destination:names.get(fare.destination) || fare.destination || route.at(-1).name,
+      direction_ref:'', product:fare.train_type || '', feature:fare.train_kind || '', route,
+      source:'Bane NOR Togkart'
+    });
+  }
+  return {journeys,source_time:new Date().toISOString()};
+}
+
 function selectedCall(journey, code) { return journey.route.find(c=>c.code===code) || null; }
 function currentPosition(journey) { const recorded=journey.route.filter(c=>c.state==='recorded'); return recorded.at(-1) || null; }
-function callIso(call) { return call?.actual_iso || call?.expected_iso || call?.planned_iso || ''; }
+function callIso(call) {
+  if(!call) return '';
+  if(call.aimed_departure_iso) return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || '';
+  return call.actual_arrival_iso || call.expected_arrival_iso || call.aimed_arrival_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
+}
 function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime) {
   const items=[];
   for(const journey of dataset.journeys) {
@@ -190,6 +248,12 @@ function zonedIso(date,time) { return `${date}T${time}:00${offsetFor(date,time)}
 function addDays(date,days) { const d=new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate()+days); return d.toISOString().slice(0,10); }
 function minutes(hhmm) { const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
 async function fetchText(url) { const r=await fetch(url); const text=await r.text(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return text; }
+async function fetchJson(url) { const r=await fetch(url); const data=await r.json(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return data; }
+async function getTogkart(force=false) {
+  if(!force && togkartCache && Date.now()-togkartCache.ts<20000) return togkartCache.data;
+  const data=await parseTogkart(await fetchJson('/api/togkart'));
+  togkartCache={ts:Date.now(),data}; return data;
+}
 async function getLiveEt(force=false) {
   if(!force && liveEtCache && Date.now()-liveEtCache.ts<45000) return liveEtCache.data;
   const data=parseEt(await fetchText('/api/et')); liveEtCache={ts:Date.now(),data}; return data;
@@ -224,6 +288,28 @@ function parseSm(xml, locationCode, date, fromTime, toTime) {
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
 }
+async function enrichTogkartMetadata(items) {
+  if(!items.length) return items;
+  const groups=new Map();
+  for(const item of items) {
+    const key=[item.operator_code,item.line].join('|');
+    if(item.operator_code && item.line && !groups.has(key)) groups.set(key,{...item,direction_ref:''});
+  }
+  const datasets=new Map();
+  await Promise.all([...groups.entries()].map(async ([key,item])=>{
+    try { datasets.set(key,await getFilteredEt(item)); } catch { datasets.set(key,null); }
+  }));
+  return items.map(item=>{
+    const dataset=datasets.get([item.operator_code,item.line].join('|'));
+    const meta=dataset?.journeys?.find(j=>j.journey_id===item.journey_id);
+    if(!meta) return item;
+    return {...item,
+      origin:meta.origin || item.origin,destination:meta.destination || item.destination,
+      operator:meta.operator || item.operator,category:meta.category || item.category,
+      direction_ref:meta.direction_ref || item.direction_ref};
+  });
+}
+
 async function enrichSmItems(items, locationCode) {
   if(!items.length) return items;
   const groups=new Map();
@@ -259,10 +345,27 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     }
     const span=Math.max(1,minutes(toTime)-minutes(fromTime));
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,fromTime),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
-    const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime);
-    if(!sm.unsupported) {
-      const items=await enrichSmItems(sm.items,locationCode);
-      return {items,source_time:sm.source_time,mode:'live',location,location_code:locationCode,date};
+    let smItems=[], smTime=null, liveItems=[], liveTime=null;
+    try {
+      const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime);
+      if(!sm.unsupported) { smItems=await enrichSmItems(sm.items,locationCode); smTime=sm.source_time; }
+    } catch {}
+    try {
+      const live=await getTogkart();
+      liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime));
+      liveTime=live.source_time;
+    } catch {}
+    if(smItems.length || liveItems.length) {
+      const merged=new Map(smItems.map(item=>[item.journey_id,item]));
+      for(const item of liveItems) {
+        const base=merged.get(item.journey_id);
+        merged.set(item.journey_id,base?{...item,
+          origin:base.origin || item.origin,destination:base.destination || item.destination,
+          operator:base.operator || item.operator,category:base.category || item.category,
+          line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
+      }
+      const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
+      return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
@@ -283,6 +386,19 @@ function detailFromJourney(journey, locationCode, sourceTime) {
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   let dataset;
   if(date===today) {
+    try {
+      dataset=await getTogkart(force);
+      let j=dataset.journeys.find(x=>x.journey_id===journeyId);
+      if(j) {
+        if(item) {
+          try {
+            const et=await getFilteredEt(item,force), meta=et.journeys.find(x=>x.journey_id===journeyId);
+            if(meta) j={...j,origin:meta.origin || j.origin,destination:meta.destination || j.destination,operator:meta.operator || j.operator,category:meta.category || j.category};
+          } catch {}
+        }
+        return detailFromJourney(j,locationCode,dataset.source_time);
+      }
+    } catch {}
     if(item) { dataset=await getFilteredEt(item,force); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return detailFromJourney(j,locationCode,dataset.source_time); }
     dataset=await getLiveEt(true);
   } else dataset=await getPlan(date,force);

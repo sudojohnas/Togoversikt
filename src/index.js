@@ -1,5 +1,6 @@
 const SIRI = 'https://siri.banenor.no/jbv';
 const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
+const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing';
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -18,6 +19,21 @@ async function proxyXml(request, upstreamBase, allowed, ttl) {
   const headers = new Headers(response.headers);
   headers.set('Cache-Control', `public, max-age=${ttl}`);
   headers.set('X-Togoversikt-Upstream', 'Bane NOR SIRI');
+  return new Response(response.body, { status: response.status, headers });
+}
+
+
+async function proxyTogkart() {
+  const upstream = new URL(TOGKART);
+  const bucket = Math.floor(Date.now() / 30000) * 30 + 60;
+  upstream.searchParams.set('timestamp', String(bucket));
+  const response = await fetch(upstream.toString(), {
+    cf: { cacheEverything: true, cacheTtl: 20 },
+    headers: { 'User-Agent': 'Togoversikt.no/1.0' },
+  });
+  const headers = new Headers(response.headers);
+  headers.set('Cache-Control', 'public, max-age=20');
+  headers.set('X-Togoversikt-Upstream', 'Bane NOR Togkart');
   return new Response(response.body, { status: response.status, headers });
 }
 
@@ -66,6 +82,7 @@ export default {
         'ValidityPeriod.StartTime', 'ValidityPeriod.EndTime',
       ], 600);
     }
+    if (url.pathname === '/api/togkart') return proxyTogkart();
     if (url.pathname === '/api/nearest') return proxyNearest(request);
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok', mode: 'Cloudflare Worker proxy', time: new Date().toISOString() });
