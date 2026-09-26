@@ -108,14 +108,15 @@ function timeCell(x) {
 
 function statusCell(x) {
   const s = String(x.status || '');
-  if (s.includes('Innstilt')) return '<strong>Innstilt</strong>';
+  const passing = x.passing ? '<span class="passing-label">(Passerende)</span>' : '';
+  if (s.includes('Innstilt')) return `${passing}<strong>Innstilt</strong>`;
   if (s.includes('Forsinket')) {
     const match = s.match(/\+(\d+) min/);
     const delay = match ? `+${match[1]} min` : 'Forsinket';
-    return `<strong>${esc(delay)}</strong>`;
+    return `${passing}<strong>${esc(delay)}</strong>`;
   }
-  if (s.includes('Passert')) return '<strong>Passert</strong>';
-  return `<strong>${esc(s || 'I rute')}</strong>`;
+  if (s.includes('Passert')) return `${passing}<strong>Passert</strong>`;
+  return `${passing}<strong>${esc(s || 'I rute')}</strong>`;
 }
 
 function categoryLabel(value) {
@@ -149,7 +150,7 @@ function renderTrainRows() {
     <td class="time time-cell">${timeCell(x)}</td>
     <td class="trainno train-cell">${esc(x.train_no)}${x.line && x.line !== '-' ? `<small>${esc(x.line)}</small>` : ''}</td>
     <td class="track-cell"><span class="track-label">Spor </span>${esc(x.platform || '–')}</td>
-    <td class="type-text type-cell">${esc(x.category)}${x.passing ? '<small class="passing-label">(passerende)</small>' : ''}</td>
+    <td class="type-text type-cell">${esc(x.category)}</td>
     <td class="operator-cell">${esc(x.operator)}</td>
     <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}</td>
     <td class="status-text status-cell">${statusCell(x)}</td>
