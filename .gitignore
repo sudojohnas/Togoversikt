@@ -2,3 +2,9 @@ node_modules/
 .wrangler/
 .dev.vars*
 .DS_Store
+/app/
+/docs/
+/data/
+/Dockerfile
+/requirements.txt
+/.dockerignore
