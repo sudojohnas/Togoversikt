@@ -222,6 +222,7 @@ async function loadTrains() {
   }
 }
 function routeTime(stop) {
+  if (stop.status === 'Passert') return `${esc(stop.actual || stop.expected || stop.planned || '–')} · Passert`;
   if (stop.actual) return `${esc(stop.actual)} · Passert`;
   if (stop.expected && stop.planned && stop.expected !== stop.planned) return `${esc(stop.expected)} · ihht. Rute · plan ${esc(stop.planned)}`;
   if (stop.expected) return `${esc(stop.expected)} · ihht. Rute`;
@@ -229,10 +230,10 @@ function routeTime(stop) {
   return 'Tid ikke oppgitt';
 }
 
-async function openDetail(journeyId) {
+async function openDetail(journeyId, force=false) {
   const dialog = $('detail');
   $('detail-content').innerHTML = '<div class="detail-loading"><span class="spinner"></span> Henter togrute …</div>';
-  dialog.showModal();
+  if (!dialog.open) dialog.showModal();
   try {
     const item = lastTrainItems.find(x => x.journey_id === journeyId) || null;
     const x = await trainDetail({
@@ -241,6 +242,7 @@ async function openDetail(journeyId) {
       locationCode: $('location').dataset.code || '',
       today: localDate(new Date()),
       item,
+      force,
     });
     if (!x) throw new Error('Toget finnes ikke lenger i datasettet');
     const route = (x.route || []).map(stop => {
@@ -252,7 +254,7 @@ async function openDetail(journeyId) {
       </div>`;
     }).join('');
     $('detail-content').innerHTML = `
-      <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div></div>
+      <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div><button id="detail-refresh" class="detail-refresh" type="button">Oppdater</button></div>
       <div class="detail-grid">
         <div><span>Operatør</span><strong>${esc(x.operator)}</strong></div>
         <div><span>Status ved valgt punkt</span><strong>${esc(x.status)}</strong></div>
@@ -260,6 +262,8 @@ async function openDetail(journeyId) {
       </div>
       <h3>Rute og registrerte passeringer</h3>
       <div class="route">${route || '<p class="muted">Ingen rutepunkter tilgjengelig.</p>'}</div>`;
+    const refresh = $('detail-refresh');
+    if (refresh) refresh.onclick = () => openDetail(journeyId, true);
   } catch (e) {
     $('detail-content').innerHTML = `<p class="error">${esc(e.message)}</p>`;
   }

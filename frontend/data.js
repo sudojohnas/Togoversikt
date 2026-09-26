@@ -194,14 +194,14 @@ async function getLiveEt(force=false) {
   if(!force && liveEtCache && Date.now()-liveEtCache.ts<45000) return liveEtCache.data;
   const data=parseEt(await fetchText('/api/et')); liveEtCache={ts:Date.now(),data}; return data;
 }
-async function getFilteredEt(item) {
+async function getFilteredEt(item, force=false) {
   const key=[item.operator_code,item.line,item.direction_ref].join('|'); const cached=filteredEtCache.get(key);
-  if(cached && Date.now()-cached.ts<45000) return cached.data;
+  if(!force && cached && Date.now()-cached.ts<45000) return cached.data;
   const p=new URLSearchParams(); if(item.operator_code) p.set('OperatorRef',item.operator_code);
   if(item.line) p.set('Lines.LineDirection.LineRef',item.line); if(item.direction_ref) p.set('Lines.LineDirection.DirectionRef',item.direction_ref);
   const data=parseEt(await fetchText(`/api/et?${p}`)); filteredEtCache.set(key,{ts:Date.now(),data}); return data;
 }
-async function getPlan(date) {
+async function getPlan(date, force=false) {
   const cached=planCache.get(date); if(cached && Date.now()-cached.ts<600000) return cached.data;
   const p=new URLSearchParams({'ValidityPeriod.StartTime':zonedIso(addDays(date,-1),'16:00'),'ValidityPeriod.EndTime':zonedIso(addDays(date,1),'00:00')});
   const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(date,{ts:Date.now(),data}); return data;
@@ -270,17 +270,21 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
 }
 function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
-  const route=journey.route.map(call=>({code:call.code,name:call.name,planned:call.planned,expected:call.expected,actual:call.actual,
-    platform:call.platform,status:journeyCallStatus(journey,call),state:current===call?'current':call.state,selected:call.code===locationCode}));
+  const currentIndex=current ? journey.route.indexOf(current) : -1;
+  const route=journey.route.map((call,index)=>({code:call.code,name:call.name,planned:call.planned,expected:call.expected,actual:call.actual,
+    platform:call.platform,status:currentIndex>=0 && index<currentIndex?'Passert':journeyCallStatus(journey,call),
+    state:currentIndex>=0 && index<currentIndex?'recorded':current===call?'current':call.state,selected:call.code===locationCode}));
+  const selectedIndex=selected ? journey.route.indexOf(selected) : -1;
+  const selectedStatus=selected ? (currentIndex>=0 && selectedIndex<currentIndex?'Passert':journeyCallStatus(journey,selected)) : '–';
   return {journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,operator:journey.operator,
-    origin:journey.origin,destination:journey.destination,status:selected?journeyCallStatus(journey,selected):'–',selected_time:selected?isoClock(callIso(selected)):null,
+    origin:journey.origin,destination:journey.destination,status:selectedStatus,selected_time:selected?isoClock(callIso(selected)):null,
     current_location:current?.name || 'Ikke registrert ennå',route,source:journey.source,source_time:sourceTime};
 }
-export async function trainDetail({journeyId,date,locationCode,today,item}) {
+export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   let dataset;
   if(date===today) {
-    if(item) { dataset=await getFilteredEt(item); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return detailFromJourney(j,locationCode,dataset.source_time); }
+    if(item) { dataset=await getFilteredEt(item,force); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return detailFromJourney(j,locationCode,dataset.source_time); }
     dataset=await getLiveEt(true);
-  } else dataset=await getPlan(date);
+  } else dataset=await getPlan(date,force);
   return detailFromJourney(dataset.journeys.find(x=>x.journey_id===journeyId),locationCode,dataset.source_time);
 }

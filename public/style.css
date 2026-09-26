@@ -76,3 +76,7 @@
 
 /* Full refresh card hit area */
 .summary-update-card{cursor:pointer;user-select:none;transition:background .12s ease,border-color .12s ease}.summary-update-card:hover{background:#f7f9fa}.summary-update-card:active{background:#eef2f5}.summary-update-card:focus-visible{outline:3px solid rgba(40,102,169,.18);outline-offset:2px}.summary-update-card .summary-refresh{pointer-events:none}.summary-update-card #updated{pointer-events:none}
+
+/* Train detail refresh */
+.detail-refresh{height:36px;flex:0 0 auto;padding:0 12px;background:#fff;color:#17202a;border:1px solid #b8c3cc;border-radius:8px;font-size:12px;font-weight:800}.detail-refresh:hover{background:#f4f7f9}.detail-refresh:active{transform:translateY(1px)}
+@media(max-width:720px){.detail-head{padding-right:38px;gap:10px}.detail-refresh{height:34px;padding:0 10px;font-size:11px}}
