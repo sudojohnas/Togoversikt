@@ -71,6 +71,9 @@ function parseCall(call={}, state='planned') {
   return {
     code:call.StopPointRef || '', name:call.StopPointName || call.StopPointRef || '',
     planned_iso:planned, expected_iso:expected, actual_iso:actual,
+    aimed_arrival_iso:aimedArr, aimed_departure_iso:aimedDep,
+    expected_arrival_iso:expectedArr, expected_departure_iso:expectedDep,
+    actual_arrival_iso:actualArr, actual_departure_iso:actualDep,
     planned:isoClock(planned), expected:isoClock(expected), actual:isoClock(actual),
     platform:call.DeparturePlatformName || call.ArrivalPlatformName || '',
     status_raw:cancelled?'cancelled':raw, state,
@@ -92,17 +95,39 @@ function delayMinutes(call) {
   if(Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
   return Math.round((b-a)/60000);
 }
-function callStatus(call) {
+function delayStatus(call) {
   const raw=String(call?.status_raw || '').toLowerCase();
   if(raw==='cancelled') return 'Innstilt';
   const delay=delayMinutes(call);
   if(raw==='delayed' || (delay!=null && delay>=1)) return `Forsinket +${Math.max(delay || 0,0)} min`;
-  if(call?.actual_iso || call?.state==='recorded') return 'Passert';
-  if(['ontime','on_time'].includes(raw)) return 'I rute';
-  // SIRI Stop Monitoring commonly reports "noReport" even when it supplies an
-  // expected time. In that case the expected-vs-planned deviation is the useful
-  // live signal: under the delay threshold means the train is currently in route.
-  if(call?.expected_iso && delay!=null) return 'I rute';
+  return null;
+}
+function callHasPassed(call) {
+  if(!call || call.state!=='recorded') return false;
+  // At a stop with a scheduled departure, arrival alone must not count as passed.
+  // This keeps a passenger train at the platform as active until it actually departs.
+  if(call.aimed_departure_iso) return Boolean(call.actual_departure_iso);
+  // At the final stop there is no departure; actual arrival completes the call.
+  return Boolean(call.actual_arrival_iso || call.actual_iso);
+}
+function journeyStarted(journey) {
+  return Boolean(journey?.route?.some(call => call.state==='recorded' &&
+    (call.actual_departure_iso || call.actual_arrival_iso || call.actual_iso)));
+}
+function journeyCallStatus(journey, call) {
+  const delayed=delayStatus(call);
+  if(delayed==='Innstilt') return delayed;
+  if(callHasPassed(call)) return 'Passert';
+  // Before the first recorded movement, the train is still only planned.
+  if(!journeyStarted(journey)) return delayed || 'Planlagt';
+  if(delayed) return delayed;
+  return 'I rute';
+}
+function smFallbackStatus(call) {
+  const delayed=delayStatus(call);
+  if(delayed) return delayed;
+  // Stop Monitoring alone does not tell us whether the journey has actually begun.
+  // The ET enrichment below upgrades started journeys to "I rute".
   return 'Planlagt';
 }
 function parseEt(xml) {
@@ -151,7 +176,7 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime) {
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:call.planned,expected_time:call.expected,actual_time:call.actual,
-      platform:call.platform,status:callStatus(call),current_location:current?.name || null,source:journey.source});
+      platform:call.platform,status:journeyCallStatus(journey,call),current_location:current?.name || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
@@ -194,10 +219,35 @@ function parseSm(xml, locationCode, date, fromTime, toTime) {
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
-      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,status:callStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
+      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,status:smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
+}
+async function enrichSmItems(items, locationCode) {
+  if(!items.length) return items;
+  const groups=new Map();
+  for(const item of items) {
+    const key=[item.operator_code,item.line,item.direction_ref].join('|');
+    if(!groups.has(key)) groups.set(key,item);
+  }
+  const datasets=new Map();
+  await Promise.all([...groups.entries()].map(async ([key,item]) => {
+    try { datasets.set(key,await getFilteredEt(item)); } catch { datasets.set(key,null); }
+  }));
+  return items.map(item => {
+    const key=[item.operator_code,item.line,item.direction_ref].join('|');
+    const dataset=datasets.get(key);
+    const journey=dataset?.journeys?.find(j=>j.journey_id===item.journey_id);
+    if(!journey) return item;
+    const call=selectedCall(journey,locationCode);
+    if(!call) return item;
+    const current=currentPosition(journey);
+    return {...item,
+      planned_time:call.planned || item.planned_time, expected_time:call.expected || item.expected_time,
+      actual_time:call.actual || item.actual_time, platform:call.platform || item.platform,
+      status:journeyCallStatus(journey,call), current_location:current?.name || null, source:'Bane NOR SIRI ET'};
+  });
 }
 export async function queryTrains({locationCode,location,date,fromTime,toTime,today}) {
   if(date===today) {
@@ -210,7 +260,10 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const span=Math.max(1,minutes(toTime)-minutes(fromTime));
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,fromTime),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
     const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime);
-    if(!sm.unsupported) return {items:sm.items,source_time:sm.source_time,mode:'live',location,location_code:locationCode,date};
+    if(!sm.unsupported) {
+      const items=await enrichSmItems(sm.items,locationCode);
+      return {items,source_time:sm.source_time,mode:'live',location,location_code:locationCode,date};
+    }
     const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
   const pt=await getPlan(date); return {items:queryDataset(pt,locationCode,date,fromTime,toTime),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};
@@ -218,9 +271,9 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
 function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
   const route=journey.route.map(call=>({code:call.code,name:call.name,planned:call.planned,expected:call.expected,actual:call.actual,
-    platform:call.platform,status:callStatus(call),state:current===call?'current':call.state,selected:call.code===locationCode}));
+    platform:call.platform,status:journeyCallStatus(journey,call),state:current===call?'current':call.state,selected:call.code===locationCode}));
   return {journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,operator:journey.operator,
-    origin:journey.origin,destination:journey.destination,status:selected?callStatus(selected):'–',selected_time:selected?isoClock(callIso(selected)):null,
+    origin:journey.origin,destination:journey.destination,status:selected?journeyCallStatus(journey,selected):'–',selected_time:selected?isoClock(callIso(selected)):null,
     current_location:current?.name || 'Ikke registrert ennå',route,source:journey.source,source_time:sourceTime};
 }
 export async function trainDetail({journeyId,date,locationCode,today,item}) {
