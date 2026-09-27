@@ -301,7 +301,6 @@ $('location').addEventListener('keydown', e => {
 document.addEventListener('click', e => { if (!e.target.closest('.location-field')) hideSuggestions(); });
 const monthNames = ['jan.','feb.','mars','apr.','mai','juni','juli','aug.','sep.','okt.','nov.','des.'];
 const dayNames = ['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
-let pickerTarget = null;
 let calendarCursor = new Date();
 
 function formatDateButton(value) {
@@ -314,13 +313,10 @@ function syncPickerButtons() {
   $('from-display').textContent = $('from').value;
   $('to-display').textContent = $('to').value;
 }
-function openPicker(target) {
-  pickerTarget = target;
-  if (target === 'date') {
-    const [y,m,d] = $('date').value.split('-').map(Number);
-    calendarCursor = new Date(y,m-1,d);
-    renderCalendar();
-  } else renderTimePicker(target);
+function openDatePicker() {
+  const [y,m,d] = $('date').value.split('-').map(Number);
+  calendarCursor = new Date(y,m-1,d);
+  renderCalendar();
   $('value-picker').showModal();
 }
 function renderCalendar() {
@@ -346,25 +342,13 @@ function renderCalendar() {
     if ($('location').dataset.code) loadTrains();
   });
 }
-function renderTimePicker(target) {
-  const input=$(target);
-  let [h,m]=input.value.split(':').map(Number);
-  let pickedNow=false;
-  const canUseNow=target==='from' && $('date').value===localDate(new Date());
-  const nowButton=canUseNow?'<button id="time-now" class="time-now" type="button">Nå</button>':'';
-  $('picker-title').textContent=target==='from'?'Velg fra-tid':'Velg til-tid';
-  $('picker-body').innerHTML=`<div class="time-exact-field"><input id="time-exact" type="time" step="60" value="${pad(h)}:${pad(m)}" aria-label="Klokkeslett"></div><div class="time-quick ${canUseNow?'has-now':''}">${nowButton}<button data-time="00:00">00:00</button><button data-time="06:00">06:00</button><button data-time="12:00">12:00</button><button data-time="18:00">18:00</button><button data-time="23:59">23:59</button></div><button id="time-done" class="picker-done" type="button">Ferdig</button>`;
-  const paint=()=>{$('time-exact').value=`${pad(h)}:${pad(m)}`;};
-  const manual=()=>{pickedNow=false;};
-  document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{manual();[h,m]=b.dataset.time.split(':').map(Number);paint();});
-  $('time-exact').oninput=e=>{if(!e.target.value)return;manual();[h,m]=e.target.value.split(':').map(Number);paint();};
-  $('time-exact').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('time-done').click();}};
-  if(canUseNow) $('time-now').onclick=()=>{[h,m]=localTime(new Date()).split(':').map(Number);pickedNow=true;paint();};
-  $('time-done').onclick=()=>{input.value=`${pad(h)}:${pad(m)}`;if(target==='from') autoFromNow=pickedNow;syncPickerButtons();$('value-picker').close();if($('location').dataset.code) loadTrains();};
-}
-$('date-display').onclick=()=>openPicker('date');
-$('from-display').onclick=()=>openPicker('from');
-$('to-display').onclick=()=>openPicker('to');
+$('date-display').onclick=openDatePicker;
+for(const target of ['from','to']) $(target).addEventListener('change',()=>{
+  if(!$(target).value) return;
+  if(target==='from') autoFromNow=false;
+  syncPickerButtons();
+  if($('location').dataset.code) loadTrains();
+});
 $('picker-close').onclick=()=>$('value-picker').close();
 $('value-picker').addEventListener('click',e=>{if(e.target===$('value-picker')) $('value-picker').close();});
 $('date').value = localDate(new Date());

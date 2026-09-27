@@ -25,8 +25,8 @@
       </div>
       <div class="time-filter-row custom-filter-row">
         <div class="compact-picker-field"><label>Dato</label><button id="date-display" class="picker-trigger" type="button"></button><input id="date" type="hidden" value=""></div>
-        <div class="compact-picker-field"><label>Fra</label><button id="from-display" class="picker-trigger" type="button"></button><input id="from" type="hidden" value=""></div>
-        <div class="compact-picker-field"><label>Til</label><button id="to-display" class="picker-trigger" type="button"></button><input id="to" type="hidden" value="23:59"></div>
+        <div class="compact-picker-field native-time-field"><label for="from">Fra</label><div id="from-display" class="picker-trigger time-display" aria-hidden="true"></div><input id="from" class="native-time-input" type="time" value="" aria-label="Fra klokkeslett"></div>
+        <div class="compact-picker-field native-time-field"><label for="to">Til</label><div id="to-display" class="picker-trigger time-display" aria-hidden="true"></div><input id="to" class="native-time-input" type="time" value="23:59" aria-label="Til klokkeslett"></div>
       </div>
     </section>
     <section id="welcome" class="welcome panel">
@@ -67,6 +67,7 @@
   <dialog id="filter-dialog" class="filter-dialog">
     <div class="filter-sheet">
       <div class="filter-head"><div><div class="kicker">Visning</div><h2>Filter</h2></div><button id="filter-close" type="button" aria-label="Lukk">×</button></div>
+      <p class="filter-warning"><strong>OBS:</strong> Visning av arbeidstog er beta inntil videre, det er derfor ingen garanti for at disse kommer opp.</p>
       <div class="filter-group"><h3>Togtype</h3><div id="filter-categories" class="filter-options"></div></div>
       <div class="filter-group"><h3>Spor</h3><div id="filter-tracks" class="filter-options"></div></div>
       <div class="filter-actions-dialog"><button id="filter-reset" type="button" class="secondary">Vis alle</button><button id="filter-done" type="button">Ferdig</button></div>
