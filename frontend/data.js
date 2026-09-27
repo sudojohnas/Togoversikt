@@ -11,6 +11,7 @@ const parser = new XMLParser({
     'DatedTimetableVersionFrame','DatedVehicleJourney','DatedCall','MonitoredStopVisit'].includes(name),
 });
 const arr = value => value == null ? [] : Array.isArray(value) ? value : [value];
+const LIVE_LOOKBACK_MINUTES = 360;
 let locationsPromise = null;
 let liveEtCache = null;
 let togkartCache = null;
@@ -106,7 +107,7 @@ function delayStatus(call) {
   return null;
 }
 function callHasPassed(call) {
-  if(!call || call.state!=='recorded') return false;
+  if(!call) return false;
   // At a stop with a scheduled departure, arrival alone must not count as passed.
   // This keeps a passenger train at the platform as active until it actually departs.
   if(call.aimed_departure_iso) return Boolean(call.actual_departure_iso);
@@ -227,17 +228,29 @@ function callIso(call) {
   if(call.aimed_departure_iso) return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || '';
   return call.actual_arrival_iso || call.expected_arrival_iso || call.aimed_arrival_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
 }
-function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime) {
+export function callWindowState(call, selectedDate, fromTime, toTime, includeOverdue=false) {
+  const iso=callIso(call); if(!iso || isoDate(iso)!==selectedDate) return {include:false,clock:null,overdue:false};
+  const clock=isoClock(iso); if(!clock || clock>toTime) return {include:false,clock,overdue:false};
+  if(clock>=fromTime) return {include:true,clock,overdue:false};
+  if(!includeOverdue || callHasPassed(call) || delayStatus(call)==='Innstilt') return {include:false,clock,overdue:false};
+  const plannedIso=call.planned_iso || '';
+  const plannedClock=isoClock(plannedIso);
+  const overdue=isoDate(plannedIso)===selectedDate && Boolean(plannedClock) && plannedClock<fromTime && plannedClock<=toTime;
+  return {include:overdue,clock,overdue};
+}
+function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, includeOverdue=false) {
   const items=[];
   for(const journey of dataset.journeys) {
     const call=selectedCall(journey,locationCode); if(!call) continue;
-    const iso=callIso(call); if(!iso || isoDate(iso)!==selectedDate) continue;
-    const clock=isoClock(iso); if(!clock || clock<fromTime || clock>toTime) continue;
+    const window=callWindowState(call,selectedDate,fromTime,toTime,includeOverdue); if(!window.include) continue;
+    const clock=window.clock;
     const current=currentPosition(journey);
+    const baseStatus=journeyCallStatus(journey,call);
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:call.planned,expected_time:call.expected,actual_time:call.actual,
-      platform:call.platform,passing:Boolean(call.passing),status:journeyCallStatus(journey,call),current_location:current?.name || null,source:journey.source});
+      platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
+      current_location:current?.name || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
@@ -273,20 +286,21 @@ async function getPlan(date, force=false) {
   const p=new URLSearchParams({'ValidityPeriod.StartTime':zonedIso(addDays(date,-1),'16:00'),'ValidityPeriod.EndTime':zonedIso(addDays(date,1),'00:00')});
   const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(date,{ts:Date.now(),data}); return data;
 }
-function parseSm(xml, locationCode, date, fromTime, toTime) {
+function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false) {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
   if(String(service.Status).toLowerCase()==='false' || service.ErrorCondition) return {unsupported:true,items:[],source_time:service.ResponseTimestamp || null};
   const delivery=service.StopMonitoringDelivery || {}; const items=[];
   for(const visit of arr(delivery.MonitoredStopVisit)) {
     const j=visit?.MonitoredVehicleJourney || {}, c=parseCall(j.MonitoredCall || {},'estimated');
-    c.code=locationCode; const iso=callIso(c); if(!iso || isoDate(iso)!==date) continue;
-    const clock=isoClock(iso); if(!clock || clock<fromTime || clock>toTime) continue;
+    c.code=locationCode; const window=callWindowState(c,date,fromTime,toTime,includeOverdue); if(!window.include) continue;
+    const clock=window.clock;
     const operator=j.OperatorRef || '', product=j.ProductCategoryRef || '', feature=j.ServiceFeatureRef || '';
     const id=j?.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || visit.ItemIdentifier || `${j.VehicleRef || '–'}:${date}`;
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
-      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,passing:Boolean(c.passing),status:smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
+      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,passing:Boolean(c.passing),
+      status:window.overdue?'Forsinket':smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
@@ -361,16 +375,18 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       } catch {}
       return {items:etItems,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
     }
-    const span=Math.max(1,minutes(toTime)-minutes(fromTime));
-    const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,fromTime),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
+    const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
+    const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
+    const span=Math.max(1,minutes(toTime)-smStartMinutes);
+    const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,smStart),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
     let smItems=[], smTime=null, liveItems=[], liveTime=null;
     try {
-      const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime);
+      const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,true);
       if(!sm.unsupported) { smItems=await enrichSmItems(sm.items,locationCode); smTime=sm.source_time; }
     } catch {}
     try {
       const live=await getTogkart();
-      liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime));
+      liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,true));
       liveTime=live.source_time;
     } catch {}
     if(smItems.length || liveItems.length) {
@@ -385,7 +401,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
-    const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+    const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime,true),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
   const pt=await getPlan(date); return {items:queryDataset(pt,locationCode,date,fromTime,toTime),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};
 }
