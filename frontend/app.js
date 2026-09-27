@@ -197,6 +197,23 @@ function resetFilters() {
   renderTrainRows();
 }
 
+function applyTrainData(d) {
+  lastDataSignature = dataSignature(d);
+  if (d.location_code) $('location').dataset.code = d.location_code;
+  if (d.location) $('location').value = d.location;
+  if (activeLocationCode && d.location_code && activeLocationCode !== d.location_code) {
+    hiddenCategories.clear();
+    hiddenTracks.clear();
+  }
+  activeLocationCode = d.location_code || activeLocationCode;
+  lastTrainItems = d.items || [];
+  $('source').textContent = 'Oppdater';
+  $('updated').textContent = formatSourceTime(d.source_time);
+  $('welcome').hidden = true;
+  $('results').hidden = false;
+  renderTrainRows();
+}
+
 async function loadTrains() {
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
@@ -205,21 +222,7 @@ async function loadTrains() {
   $('rows').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Henter Bane NOR-data …</td></tr>';
   try {
     const d = await queryTrains(currentTrainQuery());
-    lastDataSignature = dataSignature(d);
-    $('update-notice').hidden = true;
-    if (d.location_code) $('location').dataset.code = d.location_code;
-    if (d.location) $('location').value = d.location;
-    if (activeLocationCode && d.location_code && activeLocationCode !== d.location_code) {
-      hiddenCategories.clear();
-      hiddenTracks.clear();
-    }
-    activeLocationCode = d.location_code || activeLocationCode;
-    lastTrainItems = d.items || [];
-    $('source').textContent = 'Oppdater';
-    $('updated').textContent = formatSourceTime(d.source_time);
-    $('welcome').hidden = true;
-    $('results').hidden = false;
-    renderTrainRows();
+    applyTrainData(d);
   } catch (e) {
     $('welcome').hidden = true;
     $('results').hidden = false;
@@ -417,11 +420,15 @@ async function checkForUpdates() {
   if ($('date').value !== localDate(new Date()) || document.hidden) return;
   updateCheckRunning = true;
   try {
+    if (autoFromNow) {
+      $('from').value = localTime(new Date());
+      syncPickerButtons();
+    }
+    const requestedCode = $('location').dataset.code;
     const d = await queryTrains(currentTrainQuery());
     const signature = dataSignature(d);
-    if (lastDataSignature !== null && signature !== lastDataSignature) {
-      $('update-notice').hidden = false;
-    }
+    if ($('location').dataset.code !== requestedCode) return;
+    if (lastDataSignature === null || signature !== lastDataSignature) applyTrainData(d);
   } catch (_) {
     // Bakgrunnssjekk skal aldri forstyrre brukeren.
   } finally {
@@ -443,11 +450,6 @@ function refreshTrains() {
 $('source-card').addEventListener('click', refreshTrains);
 $('source-card').addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); refreshTrains(); }
-});
-
-$('apply-update').addEventListener('click', () => {
-  if (autoFromNow && $('date').value === localDate(new Date())) $('from').value = localTime(new Date());
-  loadTrains();
 });
 
 setInterval(checkForUpdates, 60000);
