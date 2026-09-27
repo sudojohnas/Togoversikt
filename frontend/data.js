@@ -94,26 +94,31 @@ function category(feature='', product='', operator='') {
   return 'Ukjent';
 }
 function delayMinutes(call) {
-  if(!call?.planned_iso || !call?.expected_iso) return null;
-  const a=new Date(call.planned_iso), b=new Date(call.expected_iso);
+  const useDeparture=Boolean(call?.aimed_departure_iso && call?.expected_departure_iso);
+  const planned=useDeparture?call.aimed_departure_iso:(call?.aimed_arrival_iso || call?.planned_iso);
+  const expected=useDeparture?call.expected_departure_iso:(call?.expected_arrival_iso || call?.expected_iso);
+  if(!planned || !expected) return null;
+  const a=new Date(planned), b=new Date(expected);
   if(Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
   return Math.round((b-a)/60000);
 }
 function delayStatus(call) {
   const raw=String(call?.status_raw || '').toLowerCase();
   if(raw==='cancelled') return 'Innstilt';
-  const plannedMs=Date.parse(call?.planned_iso || ''), expectedMs=Date.parse(call?.expected_iso || '');
-  if(Number.isFinite(plannedMs) && Number.isFinite(expectedMs) && expectedMs<=plannedMs) return null;
   const delay=delayMinutes(call);
+  if(delay!=null && delay<=0) return null;
   if(delay!=null && delay>=1) return `Forsinket +${delay} min`;
   if(raw==='delayed') return 'Forsinket';
   return null;
+}
+function callHasDeparture(call) {
+  return Boolean(call?.aimed_departure_iso || call?.expected_departure_iso || call?.actual_departure_iso);
 }
 function callHasPassed(call) {
   if(!call) return false;
   // At a stop with a scheduled departure, arrival alone must not count as passed.
   // This keeps a passenger train at the platform as active until it actually departs.
-  if(call.aimed_departure_iso) return Boolean(call.actual_departure_iso);
+  if(callHasDeparture(call)) return Boolean(call.actual_departure_iso);
   // At the final stop there is no departure; actual arrival completes the call.
   return Boolean(call.actual_arrival_iso || call.actual_iso);
 }
@@ -230,8 +235,17 @@ function selectedCall(journey, code) { return journey.route.find(c=>c.code===cod
 function currentPosition(journey) { const recorded=journey.route.filter(c=>c.state==='recorded'); return recorded.at(-1) || null; }
 function callIso(call) {
   if(!call) return '';
-  if(call.aimed_departure_iso) return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || '';
+  if(callHasDeparture(call)) return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || '';
   return call.actual_arrival_iso || call.expected_arrival_iso || call.aimed_arrival_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
+}
+function callDisplayTimes(call) {
+  if(callHasDeparture(call)) return {
+    planned:isoClock(call.aimed_departure_iso), expected:isoClock(call.expected_departure_iso), actual:isoClock(call.actual_departure_iso)
+  };
+  return {
+    planned:isoClock(call.aimed_arrival_iso || call.planned_iso), expected:isoClock(call.expected_arrival_iso || call.expected_iso),
+    actual:isoClock(call.actual_arrival_iso || call.actual_iso)
+  };
 }
 export function callWindowState(call, selectedDate, fromTime, toTime, includeOverdue=false) {
   const iso=callIso(call); if(!iso || isoDate(iso)!==selectedDate) return {include:false,clock:null,overdue:false};
@@ -251,14 +265,23 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
     const clock=window.clock;
     const current=currentPosition(journey);
     const baseStatus=journeyCallStatus(journey,call);
+    const display=callDisplayTimes(call);
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
-      direction_ref:journey.direction_ref,time:clock,planned_time:call.planned,expected_time:call.expected,actual_time:call.actual,
+      direction_ref:journey.direction_ref,time:clock,planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
       platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
       current_location:current?.name || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
+}
+export function filterLiveItems(items, fromTime, toTime) {
+  return items.filter(item=>{
+    if(!item.time || item.time>toTime) return false;
+    if(item.time>=fromTime) return true;
+    const status=String(item.status || '').toLowerCase();
+    return !status.includes('passert') && !status.includes('innstilt');
+  });
 }
 function offsetFor(date,time='12:00') {
   const probe=new Date(`${date}T${time}:00Z`);
@@ -391,7 +414,9 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     } catch {}
     try {
       const live=await getTogkart();
-      liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,true));
+      // Keep today's completed calls until after merging so their actual times can
+      // replace stale Stop Monitoring entries before the final time filter.
+      liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,'00:00',toTime,true));
       liveTime=live.source_time;
     } catch {}
     if(smItems.length || liveItems.length) {
@@ -403,7 +428,8 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
           operator:base.operator || item.operator,category:base.category || item.category,
           line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
       }
-      const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
+      const items=filterLiveItems([...merged.values()],fromTime,toTime)
+        .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime,true),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
