@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { callWindowState, detailFromJourney, filterLiveItems, journeyCallStatus, smFallbackStatus } from '../frontend/data.js';
+import { callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -109,4 +109,10 @@ test('keeps separate arrival and departure times in train details', () => {
   assert.equal(detail.route[0].planned_departure,'14:05');
   assert.equal(detail.route[0].expected_departure,'14:07');
   assert.equal(detail.route[0].actual_departure,'14:06');
+});
+
+test('enriches route codes with full SIRI names', () => {
+  const journey={route:[{code:'NTH',name:'NTH'},{code:'LSD',name:'LSD'},{code:'OSL',name:'Oslo S'}]};
+  const metadata={route:[{code:'NTH',name:'Nationaltheatret'},{code:'LSD',name:'Leirsund'},{code:'OSL',name:'Oslo S'}]};
+  assert.deepEqual(enrichJourneyRouteNames(journey,metadata).route.map(x=>x.name),['Nationaltheatret','Leirsund','Oslo S']);
 });

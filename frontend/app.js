@@ -265,9 +265,10 @@ async function openDetail(journeyId, force=false) {
     if (!x) throw new Error('Toget finnes ikke lenger i datasettet');
     const route = (x.route || []).map(stop => {
       const cls = stop.state === 'current' ? 'current' : stop.state === 'recorded' ? 'passed' : 'upcoming';
+      const code = stop.code && stop.code !== stop.name ? ` <small>(${esc(stop.code)})</small>` : '';
       return `<div class="route-stop ${cls} ${stop.selected ? 'selected' : ''}">
         <div class="route-marker"></div>
-        <div><strong>${esc(stop.name)} <small>${esc(stop.code || '')}</small>${stop.passing ? '<em class="passing-badge">Passerende</em>' : ''}</strong>
+        <div><strong>${esc(stop.name)}${code}${stop.passing ? '<em class="passing-badge">Passerende</em>' : ''}</strong>
         <span>${routeTime(stop)}${stop.platform ? ` · spor ${esc(stop.platform)}` : ''}${stop.status === 'Innstilt' ? ' · innstilt' : ''}</span></div>
       </div>`;
     }).join('');

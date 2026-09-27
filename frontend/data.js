@@ -274,7 +274,7 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
       platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
-      current_location:current?.name || null,source:journey.source});
+      current_location:current?.name || null,current_location_code:current?.code || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
@@ -352,11 +352,19 @@ async function enrichTogkartMetadata(items) {
     const dataset=datasets.get([item.operator_code,item.line].join('|'));
     const meta=dataset?.journeys?.find(j=>j.journey_id===item.journey_id);
     if(!meta) return item;
+    const routeNames=new Map(meta.route.filter(call=>call.name && call.name!==call.code).map(call=>[call.code,call.name]));
     return {...item,
       origin:meta.origin || item.origin,destination:meta.destination || item.destination,
       operator:meta.operator || item.operator,category:meta.category || item.category,
-      direction_ref:meta.direction_ref || item.direction_ref};
+      direction_ref:meta.direction_ref || item.direction_ref,
+      current_location:routeNames.get(item.current_location_code) || item.current_location};
   });
+}
+
+export function enrichJourneyRouteNames(journey, metadataJourney) {
+  if(!journey || !metadataJourney) return journey;
+  const names=new Map(metadataJourney.route.filter(call=>call.name && call.name!==call.code).map(call=>[call.code,call.name]));
+  return {...journey,route:journey.route.map(call=>({...call,name:names.get(call.code) || call.name}))};
 }
 
 async function enrichSmItems(items, locationCode) {
@@ -464,7 +472,7 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
         if(item) {
           try {
             const et=await getFilteredEt(item,force), meta=et.journeys.find(x=>x.journey_id===journeyId);
-            if(meta) j={...j,origin:meta.origin || j.origin,destination:meta.destination || j.destination,operator:meta.operator || j.operator,category:meta.category || j.category};
+            if(meta) j={...enrichJourneyRouteNames(j,meta),origin:meta.origin || j.origin,destination:meta.destination || j.destination,operator:meta.operator || j.operator,category:meta.category || j.category};
           } catch {}
         }
         return detailFromJourney(j,locationCode,dataset.source_time);
