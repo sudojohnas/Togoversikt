@@ -231,23 +231,22 @@ async function loadTrains() {
     $('rows').innerHTML = `<tr><td colspan="7" class="empty error">${esc(e.message)}</td></tr>`;
   }
 }
-function routeEventTime(label, actual, expected, planned) {
-  if (actual) return `${label} ${esc(actual)} · faktisk${planned && planned!==actual?` · planlagt ${esc(planned)}`:''}`;
-  if (expected) return `${label} ${esc(expected)} · forventet${planned && planned!==expected?` · planlagt ${esc(planned)}`:''}`;
-  if (planned) return `${label} ${esc(planned)} · planlagt`;
+function routeEventTime(actual, expected, planned) {
+  if (actual) return esc(actual);
+  if (expected) return `${esc(expected)} <small class="route-time-kind">forv.</small>`;
+  if (planned) return `${esc(planned)} <small class="route-time-kind">plan.</small>`;
   return '';
 }
 function routeTime(stop) {
-  const events=[
-    routeEventTime('Ankomst',stop.actual_arrival,stop.expected_arrival,stop.planned_arrival),
-    routeEventTime('Avgang',stop.actual_departure,stop.expected_departure,stop.planned_departure),
-  ].filter(Boolean);
-  if(events.length) return events.join('<br>');
-  if (stop.status === 'Passert' || stop.status === 'Ankommet') return `${esc(stop.actual || stop.expected || stop.planned || '–')} · ${esc(stop.status)}`;
+  const arrival=routeEventTime(stop.actual_arrival,stop.expected_arrival,stop.planned_arrival);
+  const departure=routeEventTime(stop.actual_departure,stop.expected_departure,stop.planned_departure);
+  const events=[];
+  if(arrival) events.push(`Ank. ${arrival}`);
+  if(departure) events.push(`Avg. ${departure}`);
+  if(events.length) return events.join(' · ');
   if (stop.actual) return `${esc(stop.actual)}`;
-  if (stop.expected && stop.planned && stop.expected !== stop.planned) return `${esc(stop.expected)} · Planlagt ${esc(stop.planned)}`;
-  if (stop.expected) return `${esc(stop.expected)}`;
-  if (stop.planned) return `${esc(stop.planned)} · Planlagt`;
+  if (stop.expected) return `${esc(stop.expected)} <small class="route-time-kind">forv.</small>`;
+  if (stop.planned) return `${esc(stop.planned)} <small class="route-time-kind">plan.</small>`;
   return 'Tid ikke oppgitt';
 }
 
@@ -282,7 +281,7 @@ async function openDetail(journeyId, force=false) {
         ${x.passing ? '<div><span>Stopp ved valgt punkt</span><strong>Nei – passerer uten stopp</strong></div>' : ''}
         <div><span>Siste registrerte punkt</span><strong>${esc(x.current_location)}</strong></div>
       </div>
-      <h3>Rute og registrerte passeringer</h3>
+      <h3>Rute</h3>
       <div class="route">${route || '<p class="muted">Ingen rutepunkter tilgjengelig.</p>'}</div>`;
     const refresh = $('detail-refresh');
     if (refresh) refresh.onclick = () => openDetail(journeyId, true);
