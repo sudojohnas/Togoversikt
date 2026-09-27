@@ -147,6 +147,13 @@ function journeyStarted(journey) {
   return Boolean(journey?.route?.some(call => call.state==='recorded' &&
     (call.actual_departure_iso || call.actual_arrival_iso || call.actual_iso)));
 }
+function journeyHasPassedCall(journey, call) {
+  if(callHasPassed(call)) return true;
+  const index=journey?.route?.indexOf(call) ?? -1;
+  if(index<0) return false;
+  return journey.route.slice(index+1).some(later=>
+    Boolean(later.actual_departure_iso || later.actual_arrival_iso || later.actual_iso));
+}
 function passedStatus(journey, call) {
   const isDestination=journey?.route?.at(-1)===call;
   return isDestination && Boolean(call?.actual_arrival_iso || call?.actual_iso) ? 'Ankommet' : 'Passert';
@@ -154,7 +161,7 @@ function passedStatus(journey, call) {
 export function journeyCallStatus(journey, call) {
   const delayed=delayStatus(call);
   if(delayed==='Innstilt') return delayed;
-  if(callHasPassed(call)) return passedStatus(journey,call);
+  if(journeyHasPassedCall(journey,call)) return passedStatus(journey,call);
   // Before the first recorded movement, the train is still only planned.
   if(!journeyStarted(journey)) return delayed || 'Planlagt';
   if(delayed) return delayed;
@@ -315,9 +322,9 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
 export function filterLiveItems(items, fromTime, toTime) {
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
-    if(item.time>=fromTime) return true;
     const status=String(item.status || '').toLowerCase();
     if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) return false;
+    if(item.time>=fromTime) return true;
     const unconfirmedAge=minutes(fromTime)-minutes(item.time);
     return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
@@ -490,7 +497,9 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
-    const et=await getLiveEt(); return {items:queryDataset(et,locationCode,date,fromTime,toTime,true),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+    const et=await getLiveEt();
+    const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,true),fromTime,toTime);
+    return {items,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
   const pt=await getPlan(date); return {items:queryDataset(pt,locationCode,date,fromTime,toTime),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};
 }

@@ -140,6 +140,16 @@ test('retains a recently overdue train and a train confirmed at the platform', (
   );
 });
 
+test('marks a missing call passed when the train is recorded at a later point', () => {
+  const selected={...baseCall,code:'NYL',planned_iso:'2026-09-27T17:04:58+02:00',aimed_departure_iso:'2026-09-27T17:04:58+02:00'};
+  const later={...baseCall,code:'GRO',actual_iso:'2026-09-27T17:03:39+02:00',actual_departure_iso:'2026-09-27T17:03:39+02:00',state:'recorded'};
+  assert.equal(journeyCallStatus({route:[selected,later]},selected),'Passert');
+  assert.deepEqual(
+    filterLiveItems([{train_no:'41960',time:'17:04',status:'Passert'}],'17:00','23:59'),
+    [],
+  );
+});
+
 test('keeps separate arrival and departure times in train details', () => {
   const call = {
     ...baseCall, code:'OSL', name:'Oslo S', state:'recorded',
