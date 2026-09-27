@@ -15,6 +15,7 @@ let lastDataSignature = null;
 let updateCheckRunning = false;
 let lastTrainItems = [];
 let activeLocationCode = null;
+let loadRequestId = 0;
 const hiddenCategories = new Set();
 const hiddenTracks = new Set();
 
@@ -213,21 +214,37 @@ function applyTrainData(d) {
   $('updated').textContent = formatSourceTime(d.source_time);
   $('welcome').hidden = true;
   $('results').hidden = false;
+  $('results').removeAttribute('aria-busy');
+  $('train-loading').hidden = true;
+  $('table-panel').hidden = false;
   renderTrainRows();
 }
 
 async function loadTrains() {
+  const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
     syncPickerButtons();
   }
-  $('rows').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Henter Bane NOR-data …</td></tr>';
+  const locationName = $('location').value.trim();
+  $('welcome').hidden = true;
+  $('results').hidden = false;
+  $('results').setAttribute('aria-busy','true');
+  $('train-loading-location').textContent = locationName ? `Valgt sted: ${locationName}` : 'Valgt sted';
+  $('train-loading').hidden = false;
+  $('table-panel').hidden = true;
+  $('update-notice').hidden = true;
   try {
     const d = await queryTrains(currentTrainQuery());
+    if (requestId !== loadRequestId) return;
     applyTrainData(d);
   } catch (e) {
+    if (requestId !== loadRequestId) return;
     $('welcome').hidden = true;
     $('results').hidden = false;
+    $('results').removeAttribute('aria-busy');
+    $('train-loading').hidden = true;
+    $('table-panel').hidden = false;
     $('rows').innerHTML = `<tr><td colspan="7" class="empty error">${esc(e.message)}</td></tr>`;
   }
 }

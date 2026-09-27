@@ -54,7 +54,12 @@
 
       <div id="update-notice" class="update-notice" hidden><span>Nye togdata er tilgjengelige.</span><button id="apply-update" type="button">Oppdater</button></div>
 
-      <section class="panel table-panel">
+      <section id="train-loading" class="panel train-loading" aria-live="polite" hidden>
+        <span class="spinner train-loading-spinner" aria-hidden="true"></span>
+        <div><strong>Henter tilgjengelige togdata …</strong><span id="train-loading-location">Valgt sted</span></div>
+      </section>
+
+      <section id="table-panel" class="panel table-panel">
         <table>
           <thead><tr><th>Ankomst</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
           <tbody id="rows"><tr><td colspan="7" class="empty">Henter togdata …</td></tr></tbody>
