@@ -113,6 +113,31 @@ test('removes completed and cancelled calls before now but retains overdue activ
   assert.deepEqual(filterLiveItems(items,'14:08','23:59').map(x=>x.train_no),['1920','653']);
 });
 
+test('expires an old planned train when no live time was ever reported', () => {
+  const stale={...baseCall,planned_iso:'2026-09-27T16:02:39+02:00',aimed_departure_iso:'2026-09-27T16:02:39+02:00'};
+  assert.deepEqual(
+    callWindowState(stale,'2026-09-27','16:48','23:59',true),
+    {include:false,clock:'16:02',overdue:false},
+  );
+  assert.deepEqual(
+    filterLiveItems([{train_no:'44759',time:'16:02',planned_time:'16:02',actual_time:null,status:'Planlagt'}],'16:48','23:59'),
+    [],
+  );
+});
+
+test('retains a recently overdue train and a train confirmed at the platform', () => {
+  const recent={...baseCall,planned_iso:'2026-09-27T16:30:00+02:00',aimed_departure_iso:'2026-09-27T16:30:00+02:00'};
+  assert.equal(callWindowState(recent,'2026-09-27','16:48','23:59',true).include,true);
+  assert.equal(
+    filterLiveItems([{train_no:'2',time:'16:30',planned_time:'16:30',actual_time:null,status:'Planlagt'}],'16:48','23:59')[0].status,
+    'Forsinket',
+  );
+  assert.deepEqual(
+    filterLiveItems([{train_no:'1',time:'15:00',planned_time:'15:00',actual_time:'15:00',status:'I rute'}],'16:48','23:59').map(x=>x.train_no),
+    ['1'],
+  );
+});
+
 test('keeps separate arrival and departure times in train details', () => {
   const call = {
     ...baseCall, code:'OSL', name:'Oslo S', state:'recorded',

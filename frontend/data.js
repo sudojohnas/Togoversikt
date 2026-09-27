@@ -12,6 +12,7 @@ const parser = new XMLParser({
 });
 const arr = value => value == null ? [] : Array.isArray(value) ? value : [value];
 const LIVE_LOOKBACK_MINUTES = 360;
+const UNCONFIRMED_OVERDUE_MINUTES = 30;
 let locationsPromise = null;
 let liveEtCache = null;
 let togkartCache = null;
@@ -280,6 +281,9 @@ export function callWindowState(call, selectedDate, fromTime, toTime, includeOve
   const clock=isoClock(iso); if(!clock || clock>toTime) return {include:false,clock,overdue:false};
   if(clock>=fromTime) return {include:true,clock,overdue:false};
   if(!includeOverdue || callHasPassed(call) || delayStatus(call)==='Innstilt') return {include:false,clock,overdue:false};
+  const actualEvent=callHasArrival(call)?call.actual_arrival_iso:(call.actual_departure_iso || call.actual_iso);
+  const unconfirmedAge=minutes(fromTime)-minutes(clock);
+  if(!actualEvent && unconfirmedAge>UNCONFIRMED_OVERDUE_MINUTES) return {include:false,clock,overdue:false};
   const plannedIso=callHasArrival(call)?call.aimed_arrival_iso:(call.aimed_departure_iso || call.planned_iso || '');
   const plannedClock=isoClock(plannedIso);
   const overdue=isoDate(plannedIso)===selectedDate && Boolean(plannedClock) && plannedClock<fromTime && plannedClock<=toTime;
@@ -309,7 +313,13 @@ export function filterLiveItems(items, fromTime, toTime) {
     if(!item.time || item.time>toTime) return false;
     if(item.time>=fromTime) return true;
     const status=String(item.status || '').toLowerCase();
-    return !status.includes('passert') && !status.includes('ankommet') && !status.includes('innstilt');
+    if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) return false;
+    const unconfirmedAge=minutes(fromTime)-minutes(item.time);
+    return Boolean(item.actual_time) || unconfirmedAge<=UNCONFIRMED_OVERDUE_MINUTES;
+  }).map(item=>{
+    const status=String(item.status || '').toLowerCase();
+    if(item.time<fromTime && !item.actual_time && !status.includes('forsinket')) return {...item,status:'Forsinket'};
+    return item;
   });
 }
 function offsetFor(date,time='12:00') {
