@@ -353,11 +353,9 @@ function renderTimePicker(target) {
   const canUseNow=target==='from' && $('date').value===localDate(new Date());
   const nowButton=canUseNow?'<button id="time-now" class="time-now" type="button">Nå</button>':'';
   $('picker-title').textContent=target==='from'?'Velg fra-tid':'Velg til-tid';
-  $('picker-body').innerHTML=`<div class="time-stepper"><div><button data-dh="1">+</button><strong id="pick-hour">${pad(h)}</strong><button data-dh="-1">−</button><span>time</span></div><b>:</b><div><button data-dm="5">+</button><strong id="pick-minute">${pad(m)}</strong><button data-dm="-5">−</button><span>min</span></div></div><label class="time-exact-field" for="time-exact"><span>Eksakt tidspunkt</span><input id="time-exact" type="time" step="60" value="${pad(h)}:${pad(m)}"></label><div class="time-quick ${canUseNow?'has-now':''}">${nowButton}<button data-time="00:00">00:00</button><button data-time="06:00">06:00</button><button data-time="12:00">12:00</button><button data-time="18:00">18:00</button><button data-time="23:59">23:59</button></div><button id="time-done" class="picker-done" type="button">Ferdig</button>`;
-  const paint=()=>{$('pick-hour').textContent=pad(h);$('pick-minute').textContent=pad(m);$('time-exact').value=`${pad(h)}:${pad(m)}`;};
+  $('picker-body').innerHTML=`<div class="time-exact-field"><input id="time-exact" type="time" step="60" value="${pad(h)}:${pad(m)}" aria-label="Klokkeslett"></div><div class="time-quick ${canUseNow?'has-now':''}">${nowButton}<button data-time="00:00">00:00</button><button data-time="06:00">06:00</button><button data-time="12:00">12:00</button><button data-time="18:00">18:00</button><button data-time="23:59">23:59</button></div><button id="time-done" class="picker-done" type="button">Ferdig</button>`;
+  const paint=()=>{$('time-exact').value=`${pad(h)}:${pad(m)}`;};
   const manual=()=>{pickedNow=false;};
-  document.querySelectorAll('[data-dh]').forEach(b=>b.onclick=()=>{manual();h=(h+Number(b.dataset.dh)+24)%24;paint();});
-  document.querySelectorAll('[data-dm]').forEach(b=>b.onclick=()=>{manual();m=(m+Number(b.dataset.dm)+60)%60;paint();});
   document.querySelectorAll('[data-time]').forEach(b=>b.onclick=()=>{manual();[h,m]=b.dataset.time.split(':').map(Number);paint();});
   $('time-exact').oninput=e=>{if(!e.target.value)return;manual();[h,m]=e.target.value.split(':').map(Number);paint();};
   $('time-exact').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('time-done').click();}};
