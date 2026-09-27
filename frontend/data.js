@@ -126,10 +126,14 @@ function journeyStarted(journey) {
   return Boolean(journey?.route?.some(call => call.state==='recorded' &&
     (call.actual_departure_iso || call.actual_arrival_iso || call.actual_iso)));
 }
+function passedStatus(journey, call) {
+  const isDestination=journey?.route?.at(-1)===call;
+  return isDestination && Boolean(call?.actual_arrival_iso || call?.actual_iso) ? 'Ankommet' : 'Passert';
+}
 export function journeyCallStatus(journey, call) {
   const delayed=delayStatus(call);
   if(delayed==='Innstilt') return delayed;
-  if(callHasPassed(call)) return 'Passert';
+  if(callHasPassed(call)) return passedStatus(journey,call);
   // Before the first recorded movement, the train is still only planned.
   if(!journeyStarted(journey)) return delayed || 'Planlagt';
   if(delayed) return delayed;
@@ -138,7 +142,7 @@ export function journeyCallStatus(journey, call) {
 export function smFallbackStatus(call) {
   const delayed=delayStatus(call);
   if(delayed==='Innstilt') return delayed;
-  if(callHasPassed(call)) return 'Passert';
+  if(callHasPassed(call)) return callHasDeparture(call)?'Passert':'Ankommet';
   if(delayed) return delayed;
   // Stop Monitoring alone does not tell us whether the journey has actually begun.
   // The ET enrichment below upgrades started journeys to "I rute".
@@ -280,7 +284,7 @@ export function filterLiveItems(items, fromTime, toTime) {
     if(!item.time || item.time>toTime) return false;
     if(item.time>=fromTime) return true;
     const status=String(item.status || '').toLowerCase();
-    return !status.includes('passert') && !status.includes('innstilt');
+    return !status.includes('passert') && !status.includes('ankommet') && !status.includes('innstilt');
   });
 }
 function offsetFor(date,time='12:00') {
@@ -436,10 +440,12 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
   }
   const pt=await getPlan(date); return {items:queryDataset(pt,locationCode,date,fromTime,toTime),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};
 }
-function detailFromJourney(journey, locationCode, sourceTime) {
+export function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
   const currentIndex=current ? journey.route.indexOf(current) : -1;
   const route=journey.route.map((call,index)=>({code:call.code,name:call.name,planned:call.planned,expected:call.expected,actual:call.actual,
+    planned_arrival:isoClock(call.aimed_arrival_iso),expected_arrival:isoClock(call.expected_arrival_iso),actual_arrival:isoClock(call.actual_arrival_iso),
+    planned_departure:isoClock(call.aimed_departure_iso),expected_departure:isoClock(call.expected_departure_iso),actual_departure:isoClock(call.actual_departure_iso),
     platform:call.platform,passing:Boolean(call.passing),status:currentIndex>=0 && index<currentIndex?'Passert':journeyCallStatus(journey,call),
     state:currentIndex>=0 && index<currentIndex?'recorded':current===call?'current':call.state,selected:call.code===locationCode}));
   const selectedIndex=selected ? journey.route.indexOf(selected) : -1;

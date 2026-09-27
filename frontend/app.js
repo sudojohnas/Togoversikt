@@ -22,7 +22,7 @@ function rowClass(x) {
   const s = String(x.status || '').toLowerCase();
   if (s.includes('innstilt')) return 'cancelled';
   if (s.includes('forsinket')) return 'delayed';
-  if (s.includes('passert')) return 'passed';
+  if (s.includes('passert') || s.includes('ankommet')) return 'passed';
   return 'ontime';
 }
 
@@ -30,7 +30,7 @@ function statusClass(status) {
   const s = String(status || '').toLowerCase();
   if (s.includes('innstilt')) return 'cancelled';
   if (s.includes('forsinket')) return 'delayed';
-  if (s.includes('passert')) return 'passed';
+  if (s.includes('passert') || s.includes('ankommet')) return 'passed';
   return 'normal';
 }
 
@@ -125,6 +125,7 @@ function statusCell(x) {
     return `${passing}<strong>${esc(delay)}</strong>`;
   }
   if (s.includes('Passert')) return `${passing}<strong>Passert</strong>`;
+  if (s.includes('Ankommet')) return `${passing}<strong>Ankommet</strong>`;
   return `${passing}<strong>${esc(s || 'I rute')}</strong>`;
 }
 
@@ -230,8 +231,19 @@ async function loadTrains() {
     $('rows').innerHTML = `<tr><td colspan="7" class="empty error">${esc(e.message)}</td></tr>`;
   }
 }
+function routeEventTime(label, actual, expected, planned) {
+  if (actual) return `${label} ${esc(actual)} · faktisk${planned && planned!==actual?` · planlagt ${esc(planned)}`:''}`;
+  if (expected) return `${label} ${esc(expected)} · forventet${planned && planned!==expected?` · planlagt ${esc(planned)}`:''}`;
+  if (planned) return `${label} ${esc(planned)} · planlagt`;
+  return '';
+}
 function routeTime(stop) {
-  if (stop.status === 'Passert') return `${esc(stop.actual || stop.expected || stop.planned || '–')} · Passert`;
+  const events=[
+    routeEventTime('Ankomst',stop.actual_arrival,stop.expected_arrival,stop.planned_arrival),
+    routeEventTime('Avgang',stop.actual_departure,stop.expected_departure,stop.planned_departure),
+  ].filter(Boolean);
+  if(events.length) return events.join('<br>');
+  if (stop.status === 'Passert' || stop.status === 'Ankommet') return `${esc(stop.actual || stop.expected || stop.planned || '–')} · ${esc(stop.status)}`;
   if (stop.actual) return `${esc(stop.actual)}`;
   if (stop.expected && stop.planned && stop.expected !== stop.planned) return `${esc(stop.expected)} · Planlagt ${esc(stop.planned)}`;
   if (stop.expected) return `${esc(stop.expected)}`;
