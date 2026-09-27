@@ -47,12 +47,12 @@ function dataSignature(data) {
   ]));
 }
 
-function currentTrainQuery() {
+function currentTrainQuery(fromTime=$('from').value || '00:00') {
   return {
     location: $('location').value.trim(),
     locationCode: $('location').dataset.code || '',
     date: $('date').value,
-    fromTime: $('from').value || '00:00',
+    fromTime,
     toTime: $('to').value || '23:59',
     today: localDate(new Date()),
   };
@@ -199,6 +199,7 @@ function resetFilters() {
 
 function applyTrainData(d) {
   lastDataSignature = dataSignature(d);
+  $('update-notice').hidden = true;
   if (d.location_code) $('location').dataset.code = d.location_code;
   if (d.location) $('location').value = d.location;
   if (activeLocationCode && d.location_code && activeLocationCode !== d.location_code) {
@@ -420,15 +421,12 @@ async function checkForUpdates() {
   if ($('date').value !== localDate(new Date()) || document.hidden) return;
   updateCheckRunning = true;
   try {
-    if (autoFromNow) {
-      $('from').value = localTime(new Date());
-      syncPickerButtons();
-    }
     const requestedCode = $('location').dataset.code;
-    const d = await queryTrains(currentTrainQuery());
+    const checkFrom = autoFromNow ? localTime(new Date()) : ($('from').value || '00:00');
+    const d = await queryTrains(currentTrainQuery(checkFrom));
     const signature = dataSignature(d);
     if ($('location').dataset.code !== requestedCode) return;
-    if (lastDataSignature === null || signature !== lastDataSignature) applyTrainData(d);
+    if (lastDataSignature !== null && signature !== lastDataSignature) $('update-notice').hidden = false;
   } catch (_) {
     // Bakgrunnssjekk skal aldri forstyrre brukeren.
   } finally {
@@ -451,6 +449,8 @@ $('source-card').addEventListener('click', refreshTrains);
 $('source-card').addEventListener('keydown', e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); refreshTrains(); }
 });
+
+$('apply-update').addEventListener('click', refreshTrains);
 
 setInterval(checkForUpdates, 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) checkForUpdates(); });
