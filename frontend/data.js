@@ -283,7 +283,7 @@ export function callWindowState(call, selectedDate, fromTime, toTime, includeOve
   if(!includeOverdue || callHasPassed(call) || delayStatus(call)==='Innstilt') return {include:false,clock,overdue:false};
   const actualEvent=callHasArrival(call)?call.actual_arrival_iso:(call.actual_departure_iso || call.actual_iso);
   const unconfirmedAge=minutes(fromTime)-minutes(clock);
-  if(!actualEvent && unconfirmedAge>UNCONFIRMED_OVERDUE_MINUTES) return {include:false,clock,overdue:false};
+  if(!actualEvent && unconfirmedAge>=UNCONFIRMED_OVERDUE_MINUTES) return {include:false,clock,overdue:false};
   const plannedIso=callHasArrival(call)?call.aimed_arrival_iso:(call.aimed_departure_iso || call.planned_iso || '');
   const plannedClock=isoClock(plannedIso);
   const overdue=isoDate(plannedIso)===selectedDate && Boolean(plannedClock) && plannedClock<fromTime && plannedClock<=toTime;
@@ -299,10 +299,14 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
     const current=currentPosition(journey);
     const baseStatus=journeyCallStatus(journey,call);
     const display=callDisplayTimes(call);
+    const unconfirmedAge=minutes(fromTime)-minutes(clock);
+    const unconfirmedRemaining=!display.actual && unconfirmedAge>0 && unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES?
+      UNCONFIRMED_OVERDUE_MINUTES-unconfirmedAge:null;
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
       platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
+      unconfirmed_remaining_minutes:unconfirmedRemaining,
       current_location:current?.name || null,current_location_code:current?.code || null,source:journey.source});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
@@ -315,10 +319,14 @@ export function filterLiveItems(items, fromTime, toTime) {
     const status=String(item.status || '').toLowerCase();
     if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) return false;
     const unconfirmedAge=minutes(fromTime)-minutes(item.time);
-    return Boolean(item.actual_time) || unconfirmedAge<=UNCONFIRMED_OVERDUE_MINUTES;
+    return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
     const status=String(item.status || '').toLowerCase();
-    if(item.time<fromTime && !item.actual_time && !status.includes('forsinket')) return {...item,status:'Forsinket'};
+    if(item.time<fromTime && !item.actual_time) {
+      const unconfirmedAge=minutes(fromTime)-minutes(item.time);
+      return {...item,status:status.includes('forsinket')?item.status:'Forsinket',
+        unconfirmed_remaining_minutes:UNCONFIRMED_OVERDUE_MINUTES-unconfirmedAge};
+    }
     return item;
   });
 }

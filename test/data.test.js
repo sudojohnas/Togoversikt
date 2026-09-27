@@ -128,10 +128,12 @@ test('expires an old planned train when no live time was ever reported', () => {
 test('retains a recently overdue train and a train confirmed at the platform', () => {
   const recent={...baseCall,planned_iso:'2026-09-27T16:30:00+02:00',aimed_departure_iso:'2026-09-27T16:30:00+02:00'};
   assert.equal(callWindowState(recent,'2026-09-27','16:48','23:59',true).include,true);
-  assert.equal(
-    filterLiveItems([{train_no:'2',time:'16:30',planned_time:'16:30',actual_time:null,status:'Planlagt'}],'16:48','23:59')[0].status,
-    'Forsinket',
+  const [unconfirmed]=filterLiveItems(
+    [{train_no:'2',time:'16:30',planned_time:'16:30',actual_time:null,status:'Planlagt'}],
+    '16:48','23:59',
   );
+  assert.equal(unconfirmed.status,'Forsinket');
+  assert.equal(unconfirmed.unconfirmed_remaining_minutes,12);
   assert.deepEqual(
     filterLiveItems([{train_no:'1',time:'15:00',planned_time:'15:00',actual_time:'15:00',status:'I rute'}],'16:48','23:59').map(x=>x.train_no),
     ['1'],

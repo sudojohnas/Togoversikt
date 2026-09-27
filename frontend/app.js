@@ -130,6 +130,12 @@ function statusCell(x) {
   return `${passing}<strong>${esc(s || 'I rute')}</strong>`;
 }
 
+function unconfirmedNote(x) {
+  const remaining=Number(x.unconfirmed_remaining_minutes);
+  if(!Number.isFinite(remaining) || remaining<=0) return '';
+  return `<small class="unconfirmed-note">Ingen ny info mottatt · fjernes om ${remaining} min</small>`;
+}
+
 function categoryLabel(value) {
   return value === 'Persontog' ? 'Passasjertog' : (value || 'Ukjent');
 }
@@ -163,7 +169,7 @@ function renderTrainRows() {
     <td class="track-cell"><span class="track-value"><span class="track-label">Spor </span>${esc(x.platform || '–')}</span>${x.passing ? '<span class="passing-label">Passerende</span>' : ''}</td>
     <td class="type-text type-cell">${esc(x.category)}<span class="mobile-operator"> · ${esc(x.operator)}</span></td>
     <td class="operator-cell">${esc(x.operator)}</td>
-    <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}</td>
+    <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}${unconfirmedNote(x)}</td>
     <td class="status-text status-cell">${statusCell(x)}</td>
   </tr>`).join('');
   bindTrainRows();
