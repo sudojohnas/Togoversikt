@@ -300,12 +300,14 @@ $('location').addEventListener('keydown', e => {
 
 document.addEventListener('click', e => { if (!e.target.closest('.location-field')) hideSuggestions(); });
 const monthNames = ['jan.','feb.','mars','apr.','mai','juni','juli','aug.','sep.','okt.','nov.','des.'];
+const dayNames = ['Søndag','Mandag','Tirsdag','Onsdag','Torsdag','Fredag','Lørdag'];
 let pickerTarget = null;
 let calendarCursor = new Date();
 
 function formatDateButton(value) {
   const [y,m,d] = value.split('-').map(Number);
-  return `${d}. ${monthNames[m-1]} ${y}`;
+  const dayName = dayNames[new Date(y,m-1,d).getDay()];
+  return `${dayName} ${d}. ${monthNames[m-1]} ${y}`;
 }
 function syncPickerButtons() {
   $('date-display').textContent = formatDateButton($('date').value);
