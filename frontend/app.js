@@ -47,14 +47,15 @@ function dataSignature(data) {
   ]));
 }
 
-function currentTrainParams() {
-  return new URLSearchParams({
+function currentTrainQuery() {
+  return {
     location: $('location').value.trim(),
-    location_code: $('location').dataset.code || '',
+    locationCode: $('location').dataset.code || '',
     date: $('date').value,
-    from_time: $('from').value || '00:00',
-    to_time: $('to').value || '23:59',
-  });
+    fromTime: $('from').value || '00:00',
+    toTime: $('to').value || '23:59',
+    today: localDate(new Date()),
+  };
 }
 async function fetchLocations(q) { return searchLocationData(q); }
 
@@ -203,14 +204,7 @@ async function loadTrains() {
   }
   $('rows').innerHTML = '<tr><td colspan="7" class="empty"><span class="spinner"></span> Henter Bane NOR-data …</td></tr>';
   try {
-    const d = await queryTrains({
-      locationCode: $('location').dataset.code || '',
-      location: $('location').value.trim(),
-      date: $('date').value,
-      fromTime: $('from').value || '00:00',
-      toTime: $('to').value || '23:59',
-      today: localDate(new Date()),
-    });
+    const d = await queryTrains(currentTrainQuery());
     lastDataSignature = dataSignature(d);
     $('update-notice').hidden = true;
     if (d.location_code) $('location').dataset.code = d.location_code;
@@ -423,9 +417,7 @@ async function checkForUpdates() {
   if ($('date').value !== localDate(new Date()) || document.hidden) return;
   updateCheckRunning = true;
   try {
-    const r = await fetch(`/api/trains?${currentTrainParams()}`);
-    if (!r.ok) return;
-    const d = await r.json();
+    const d = await queryTrains(currentTrainQuery());
     const signature = dataSignature(d);
     if (lastDataSignature !== null && signature !== lastDataSignature) {
       $('update-notice').hidden = false;

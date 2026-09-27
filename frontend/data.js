@@ -102,8 +102,11 @@ function delayMinutes(call) {
 function delayStatus(call) {
   const raw=String(call?.status_raw || '').toLowerCase();
   if(raw==='cancelled') return 'Innstilt';
+  const plannedMs=Date.parse(call?.planned_iso || ''), expectedMs=Date.parse(call?.expected_iso || '');
+  if(Number.isFinite(plannedMs) && Number.isFinite(expectedMs) && expectedMs<=plannedMs) return null;
   const delay=delayMinutes(call);
-  if(raw==='delayed' || (delay!=null && delay>=1)) return `Forsinket +${Math.max(delay || 0,0)} min`;
+  if(delay!=null && delay>=1) return `Forsinket +${delay} min`;
+  if(raw==='delayed') return 'Forsinket';
   return null;
 }
 function callHasPassed(call) {
@@ -118,7 +121,7 @@ function journeyStarted(journey) {
   return Boolean(journey?.route?.some(call => call.state==='recorded' &&
     (call.actual_departure_iso || call.actual_arrival_iso || call.actual_iso)));
 }
-function journeyCallStatus(journey, call) {
+export function journeyCallStatus(journey, call) {
   const delayed=delayStatus(call);
   if(delayed==='Innstilt') return delayed;
   if(callHasPassed(call)) return 'Passert';
@@ -127,8 +130,10 @@ function journeyCallStatus(journey, call) {
   if(delayed) return delayed;
   return 'I rute';
 }
-function smFallbackStatus(call) {
+export function smFallbackStatus(call) {
   const delayed=delayStatus(call);
+  if(delayed==='Innstilt') return delayed;
+  if(callHasPassed(call)) return 'Passert';
   if(delayed) return delayed;
   // Stop Monitoring alone does not tell us whether the journey has actually begun.
   // The ET enrichment below upgrades started journeys to "I rute".
