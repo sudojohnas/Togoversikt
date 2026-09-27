@@ -113,9 +113,10 @@ function category(feature='', product='', operator='') {
   return 'Ukjent';
 }
 function delayMinutes(call) {
-  const useDeparture=Boolean(call?.aimed_departure_iso && call?.expected_departure_iso);
-  const planned=useDeparture?call.aimed_departure_iso:(call?.aimed_arrival_iso || call?.planned_iso);
-  const expected=useDeparture?call.expected_departure_iso:(call?.expected_arrival_iso || call?.expected_iso);
+  const useArrival=Boolean(call?.aimed_arrival_iso && (call?.actual_arrival_iso || call?.expected_arrival_iso));
+  const planned=useArrival?call.aimed_arrival_iso:(call?.aimed_departure_iso || call?.planned_iso);
+  const expected=useArrival?(call.actual_arrival_iso || call.expected_arrival_iso):
+    (call?.actual_departure_iso || call?.expected_departure_iso || call?.expected_iso);
   if(!planned || !expected) return null;
   const a=new Date(planned), b=new Date(expected);
   if(Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
@@ -256,18 +257,22 @@ async function parseTogkart(data) {
 
 function selectedCall(journey, code) { return journey.route.find(c=>c.code===code) || null; }
 function currentPosition(journey) { const recorded=journey.route.filter(c=>c.state==='recorded'); return recorded.at(-1) || null; }
+function callHasArrival(call) {
+  return Boolean(call?.aimed_arrival_iso || call?.expected_arrival_iso || call?.actual_arrival_iso);
+}
 function callIso(call) {
   if(!call) return '';
-  if(callHasDeparture(call)) return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || '';
-  return call.actual_arrival_iso || call.expected_arrival_iso || call.aimed_arrival_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
+  if(callHasArrival(call)) return call.actual_arrival_iso || call.expected_arrival_iso || call.aimed_arrival_iso || '';
+  return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
 }
-function callDisplayTimes(call) {
-  if(callHasDeparture(call)) return {
-    planned:isoClock(call.aimed_departure_iso), expected:isoClock(call.expected_departure_iso), actual:isoClock(call.actual_departure_iso)
-  };
-  return {
+export function callDisplayTimes(call) {
+  if(callHasArrival(call)) return {
     planned:isoClock(call.aimed_arrival_iso || call.planned_iso), expected:isoClock(call.expected_arrival_iso || call.expected_iso),
     actual:isoClock(call.actual_arrival_iso || call.actual_iso)
+  };
+  return {
+    planned:isoClock(call.aimed_departure_iso || call.planned_iso), expected:isoClock(call.expected_departure_iso || call.expected_iso),
+    actual:isoClock(call.actual_departure_iso || call.actual_iso)
   };
 }
 export function callWindowState(call, selectedDate, fromTime, toTime, includeOverdue=false) {
@@ -275,10 +280,11 @@ export function callWindowState(call, selectedDate, fromTime, toTime, includeOve
   const clock=isoClock(iso); if(!clock || clock>toTime) return {include:false,clock,overdue:false};
   if(clock>=fromTime) return {include:true,clock,overdue:false};
   if(!includeOverdue || callHasPassed(call) || delayStatus(call)==='Innstilt') return {include:false,clock,overdue:false};
-  const plannedIso=call.planned_iso || '';
+  const plannedIso=callHasArrival(call)?call.aimed_arrival_iso:(call.aimed_departure_iso || call.planned_iso || '');
   const plannedClock=isoClock(plannedIso);
   const overdue=isoDate(plannedIso)===selectedDate && Boolean(plannedClock) && plannedClock<fromTime && plannedClock<=toTime;
-  return {include:overdue,clock,overdue};
+  const alreadyArrived=callHasArrival(call) && Boolean(call.actual_arrival_iso);
+  return {include:overdue,clock,overdue:overdue && !alreadyArrived};
 }
 function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, includeOverdue=false) {
   const items=[];
@@ -347,10 +353,11 @@ function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false
     const clock=window.clock;
     const operator=j.OperatorRef || '', product=j.ProductCategoryRef || '', feature=j.ServiceFeatureRef || '';
     const id=j?.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || visit.ItemIdentifier || `${j.VehicleRef || '–'}:${date}`;
+    const display=callDisplayTimes(c);
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
-      planned_time:c.planned,expected_time:c.expected,actual_time:c.actual,platform:c.platform,passing:Boolean(c.passing),
+      planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,platform:c.platform,passing:Boolean(c.passing),
       status:window.overdue?'Forsinket':smFallbackStatus(c),current_location:null,source:'Bane NOR SIRI SM'});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
@@ -405,9 +412,11 @@ async function enrichSmItems(items, locationCode) {
     const call=selectedCall(journey,locationCode);
     if(!call) return item;
     const current=currentPosition(journey);
+    const display=callDisplayTimes(call);
     return {...item,
-      planned_time:call.planned || item.planned_time, expected_time:call.expected || item.expected_time,
-      actual_time:call.actual || item.actual_time, platform:call.platform || item.platform, passing:Boolean(call.passing || item.passing),
+      time:isoClock(callIso(call)) || item.time,
+      planned_time:display.planned || item.planned_time, expected_time:display.expected || item.expected_time,
+      actual_time:display.actual || item.actual_time, platform:call.platform || item.platform, passing:Boolean(call.passing || item.passing),
       status:journeyCallStatus(journey,call), current_location:current?.name || null, source:'Bane NOR SIRI ET'};
   });
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -86,7 +86,7 @@ test('requires one full minute before marking a train delayed', () => {
   }),'Forsinket +1 min');
 });
 
-test('keeps a train at the platform until its expected departure', () => {
+test('keeps a train at the platform but displays its arrival time', () => {
   const call = {
     ...baseCall,
     aimed_departure_iso: '',
@@ -98,7 +98,7 @@ test('keeps a train at the platform until its expected departure', () => {
   };
   assert.deepEqual(
     callWindowState(call, '2026-09-27', '14:08', '23:59', true),
-    { include:true, clock:'14:14', overdue:false },
+    { include:true, clock:'13:58', overdue:false },
   );
   assert.notEqual(journeyCallStatus({route:[call]},call), 'Passert');
 });
@@ -126,6 +126,26 @@ test('keeps separate arrival and departure times in train details', () => {
   assert.equal(detail.route[0].planned_departure,'14:05');
   assert.equal(detail.route[0].expected_departure,'14:07');
   assert.equal(detail.route[0].actual_departure,'14:06');
+});
+
+test('uses arrival time on the train card when arrival and departure both exist', () => {
+  const call = {
+    ...baseCall,
+    aimed_arrival_iso:'2026-09-27T14:00:00+02:00', expected_arrival_iso:'2026-09-27T14:02:00+02:00', actual_arrival_iso:'',
+    aimed_departure_iso:'2026-09-27T14:05:00+02:00', expected_departure_iso:'2026-09-27T14:07:00+02:00', actual_departure_iso:'',
+  };
+  assert.deepEqual(callDisplayTimes(call),{planned:'14:00',expected:'14:02',actual:null});
+  assert.deepEqual(callWindowState(call,'2026-09-27','13:00','15:00'),{include:true,clock:'14:02',overdue:false});
+});
+
+test('bases the card delay on arrival rather than departure', () => {
+  const call = {
+    ...baseCall,
+    aimed_arrival_iso:'2026-09-27T14:00:00+02:00', expected_arrival_iso:'2026-09-27T14:00:37+02:00',
+    aimed_departure_iso:'2026-09-27T14:05:00+02:00', expected_departure_iso:'2026-09-27T14:07:00+02:00',
+    status_raw:'delayed',
+  };
+  assert.equal(smFallbackStatus(call),'Planlagt');
 });
 
 test('enriches route codes with full SIRI names', () => {
