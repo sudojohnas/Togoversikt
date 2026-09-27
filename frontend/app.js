@@ -231,22 +231,20 @@ async function loadTrains() {
     $('rows').innerHTML = `<tr><td colspan="7" class="empty error">${esc(e.message)}</td></tr>`;
   }
 }
-function routeEventTime(actual, expected, planned) {
-  if (actual) return esc(actual);
-  if (expected) return `${esc(expected)} <small class="route-time-kind">forv.</small>`;
-  if (planned) return `${esc(planned)} <small class="route-time-kind">plan.</small>`;
+function routeEventTime(label, actual, expected, planned) {
+  if (actual) return `${label==='ank.'?'Ank.':'Avg.'} ${esc(actual)}`;
+  if (expected) return `Forventet ${label} ${esc(expected)}`;
+  if (planned) return `Planlagt ${label} ${esc(planned)}`;
   return '';
 }
 function routeTime(stop) {
-  const arrival=routeEventTime(stop.actual_arrival,stop.expected_arrival,stop.planned_arrival);
-  const departure=routeEventTime(stop.actual_departure,stop.expected_departure,stop.planned_departure);
-  const events=[];
-  if(arrival) events.push(`Ank. ${arrival}`);
-  if(departure) events.push(`Avg. ${departure}`);
+  const arrival=routeEventTime('ank.',stop.actual_arrival,stop.expected_arrival,stop.planned_arrival);
+  const departure=routeEventTime('avg.',stop.actual_departure,stop.expected_departure,stop.planned_departure);
+  const events=[arrival,departure].filter(Boolean);
   if(events.length) return events.join(' · ');
   if (stop.actual) return `${esc(stop.actual)}`;
-  if (stop.expected) return `${esc(stop.expected)} <small class="route-time-kind">forv.</small>`;
-  if (stop.planned) return `${esc(stop.planned)} <small class="route-time-kind">plan.</small>`;
+  if (stop.expected) return `Forventet ${esc(stop.expected)}`;
+  if (stop.planned) return `Planlagt ${esc(stop.planned)}`;
   return 'Tid ikke oppgitt';
 }
 
