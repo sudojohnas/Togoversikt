@@ -22,6 +22,27 @@ function searchKey(value='') {
   return String(value).toLocaleLowerCase('no').replaceAll('ø','o').replaceAll('æ','ae').replaceAll('å','a')
     .normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
 }
+function editDistance(a, b) {
+  let previous=Array.from({length:b.length+1},(_,i)=>i);
+  for(let i=1;i<=a.length;i++) {
+    const current=[i];
+    for(let j=1;j<=b.length;j++) current[j]=Math.min(
+      current[j-1]+1, previous[j]+1, previous[j-1]+(a[i-1]===b[j-1]?0:1)
+    );
+    previous=current;
+  }
+  return previous[b.length];
+}
+export function locationSearchRank(item, q) {
+  const needle=searchKey(String(q).trim()), nk=searchKey(item?.name), ck=searchKey(item?.code);
+  if(!needle) return {rank:0,distance:0};
+  if(nk.startsWith(needle)) return {rank:0,distance:0};
+  if(ck.startsWith(needle)) return {rank:1,distance:0};
+  if(nk.includes(needle) || ck.includes(needle)) return {rank:2,distance:0};
+  if(needle.length<5) return null;
+  const distance=editDistance(nk,needle), allowed=needle.length>=10?2:1;
+  return distance<=allowed ? {rank:3,distance} : null;
+}
 async function locations() {
   if (!locationsPromise) locationsPromise = fetch('/locations.json').then(r => { if(!r.ok) throw new Error('Kunne ikke laste stedskoder'); return r.json(); });
   return locationsPromise;
@@ -31,11 +52,9 @@ export async function searchLocations(q, limit=15) {
   const needle = searchKey(String(q).trim());
   if (!needle) return items.slice(0,limit);
   return items.map(item => {
-    const nk=searchKey(item.name), ck=searchKey(item.code);
-    if (!nk.includes(needle) && !ck.includes(needle)) return null;
-    const rank=nk.startsWith(needle)?0:ck.startsWith(needle)?1:2;
-    return {rank,item};
-  }).filter(Boolean).sort((a,b)=>a.rank-b.rank || a.item.name.length-b.item.name.length || a.item.name.localeCompare(b.item.name,'no'))
+    const score=locationSearchRank(item,needle);
+    return score ? {...score,item} : null;
+  }).filter(Boolean).sort((a,b)=>a.rank-b.rank || a.distance-b.distance || a.item.name.length-b.item.name.length || a.item.name.localeCompare(b.item.name,'no'))
     .slice(0,limit).map(x=>x.item);
 }
 async function resolveLocation(value) {

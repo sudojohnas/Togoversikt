@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "esbuild frontend/app.js --bundle --minify --format=iife --outfile=public/app.js",
+    "locations": "node scripts/update-locations.mjs",
     "test": "node --test",
     "dev": "npm run build && wrangler dev",
     "deploy": "npm run build && wrangler deploy"

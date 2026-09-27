@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, smFallbackStatus } from '../frontend/data.js';
+import { readFileSync } from 'node:fs';
+import { callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -115,4 +116,19 @@ test('enriches route codes with full SIRI names', () => {
   const journey={route:[{code:'NTH',name:'NTH'},{code:'LSD',name:'LSD'},{code:'OSL',name:'Oslo S'}]};
   const metadata={route:[{code:'NTH',name:'Nationaltheatret'},{code:'LSD',name:'Leirsund'},{code:'OSL',name:'Oslo S'}]};
   assert.deepEqual(enrichJourneyRouteNames(journey,metadata).route.map(x=>x.name),['Nationaltheatret','Leirsund','Oslo S']);
+});
+
+test('finds a stop by code, official name, and a close spelling', () => {
+  const location={code:'NTH',name:'Nationaltheatret',kind:'Stoppested'};
+  assert.equal(locationSearchRank(location,'NTH').rank,1);
+  assert.equal(locationSearchRank(location,'Nationaltheatret').rank,0);
+  assert.equal(locationSearchRank(location,'Nationaltheateret').rank,3);
+  assert.equal(locationSearchRank(location,'Trondheim'),null);
+});
+
+test('ships the active stopping points in the searchable location list', () => {
+  const locations=JSON.parse(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+  const byCode=new Map(locations.map(location=>[location.code,location]));
+  assert.equal(byCode.get('NTH')?.name,'Nationaltheatret');
+  for(const code of ['LIE','LSD','NBY','SDA','JÅT']) assert.ok(byCode.has(code),`${code} mangler`);
 });
