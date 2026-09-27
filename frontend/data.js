@@ -119,7 +119,7 @@ function delayMinutes(call) {
   if(!planned || !expected) return null;
   const a=new Date(planned), b=new Date(expected);
   if(Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return null;
-  return Math.round((b-a)/60000);
+  return Math.floor((b-a)/60000);
 }
 function delayStatus(call) {
   const raw=String(call?.status_raw || '').toLowerCase();

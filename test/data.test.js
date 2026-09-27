@@ -70,6 +70,22 @@ test('ignores a contradictory delayed flag when the expected time is early', () 
   assert.equal(smFallbackStatus(call), 'Planlagt');
 });
 
+test('requires one full minute before marking a train delayed', () => {
+  const secondsLate=seconds => ({
+    ...baseCall,
+    expected_iso:`2026-09-27T08:20:${String(seconds).padStart(2,'0')}+02:00`,
+    expected_departure_iso:`2026-09-27T08:20:${String(seconds).padStart(2,'0')}+02:00`,
+    status_raw:'delayed',
+  });
+  assert.equal(smFallbackStatus(secondsLate(37)),'Planlagt');
+  assert.equal(smFallbackStatus({
+    ...baseCall,
+    expected_iso:'2026-09-27T08:21:00+02:00',
+    expected_departure_iso:'2026-09-27T08:21:00+02:00',
+    status_raw:'delayed',
+  }),'Forsinket +1 min');
+});
+
 test('keeps a train at the platform until its expected departure', () => {
   const call = {
     ...baseCall,
