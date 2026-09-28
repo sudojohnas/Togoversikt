@@ -340,6 +340,17 @@ export function filterLiveItems(items, fromTime, toTime) {
     return item;
   });
 }
+export function mergeLiveItems(plannedItems=[], smItems=[], togkartItems=[]) {
+  const merged=new Map(plannedItems.map(item=>[item.journey_id,item]));
+  for(const item of [...smItems,...togkartItems]) {
+    const base=merged.get(item.journey_id);
+    merged.set(item.journey_id,base?{...base,...item,
+      origin:base.origin || item.origin,destination:base.destination || item.destination,
+      operator:base.operator || item.operator,category:base.category || item.category,
+      line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
+  }
+  return [...merged.values()];
+}
 function offsetFor(date,time='12:00') {
   const probe=new Date(`${date}T${time}:00Z`);
   const value=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Oslo',timeZoneName:'longOffset'}).formatToParts(probe).find(p=>p.type==='timeZoneName')?.value || 'GMT+01:00';
@@ -475,7 +486,11 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
     const span=Math.max(1,minutes(toTime)-smStartMinutes);
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,smStart),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
-    let smItems=[], smTime=null, liveItems=[], liveTime=null;
+    let plannedItems=[], smItems=[], smTime=null, liveItems=[], liveTime=null;
+    try {
+      const plan=await getPlan(date);
+      plannedItems=queryDataset(plan,locationCode,date,fromTime,toTime);
+    } catch {}
     try {
       const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,true);
       if(!sm.unsupported) { smItems=await enrichSmItems(sm.items,locationCode); smTime=sm.source_time; }
@@ -487,16 +502,8 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,'00:00',toTime,true));
       liveTime=live.source_time;
     } catch {}
-    if(smItems.length || liveItems.length) {
-      const merged=new Map(smItems.map(item=>[item.journey_id,item]));
-      for(const item of liveItems) {
-        const base=merged.get(item.journey_id);
-        merged.set(item.journey_id,base?{...item,
-          origin:base.origin || item.origin,destination:base.destination || item.destination,
-          operator:base.operator || item.operator,category:base.category || item.category,
-          line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
-      }
-      const items=filterLiveItems([...merged.values()],fromTime,toTime)
+    if(plannedItems.length || smItems.length || liveItems.length) {
+      const items=filterLiveItems(mergeLiveItems(plannedItems,smItems,liveItems),fromTime,toTime)
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
@@ -538,6 +545,11 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
     } catch {}
     if(item) { dataset=await getFilteredEt(item,force); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return detailFromJourney(j,locationCode,dataset.source_time); }
     dataset=await getLiveEt(true);
+    const liveJourney=dataset.journeys.find(x=>x.journey_id===journeyId);
+    if(liveJourney) return detailFromJourney(liveJourney,locationCode,dataset.source_time);
+    // A planned journey may be absent from every live feed, for example when
+    // it is cancelled before Togkart starts publishing it.
+    dataset=await getPlan(date,force);
   } else dataset=await getPlan(date,force);
   return detailFromJourney(dataset.journeys.find(x=>x.journey_id===journeyId),locationCode,dataset.source_time);
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -119,6 +119,20 @@ test('keeps upcoming cancelled calls visible', () => {
     {train_no:'85702',time:'09:49',status:'Innstilt'},
   ];
   assert.deepEqual(filterLiveItems(items,'08:00','23:59').map(x=>x.train_no),['5749','85702']);
+});
+
+test('uses the daily plan as fallback for trains missing from live feeds', () => {
+  const planned=[
+    {journey_id:'5749:2026-09-28',train_no:'5749',time:'12:20',status:'Planlagt',origin:'Koppang',destination:'Trondheim S',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'TND'},
+    {journey_id:'85702:2026-09-28',train_no:'85702',time:'09:49',status:'Planlagt',origin:'Trondheim S',destination:'Alnabru',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'ALB'},
+  ];
+  const live=[
+    {journey_id:'85702:2026-09-28',train_no:'85702',time:'09:49',status:'Innstilt',origin:'',destination:'',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'ALB'},
+  ];
+  assert.deepEqual(mergeLiveItems(planned,[],live),[
+    planned[0],
+    {...planned[1],status:'Innstilt'},
+  ]);
 });
 
 test('expires an old planned train when no live time was ever reported', () => {
