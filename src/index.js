@@ -1,5 +1,6 @@
 import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
+import { filterProductionTimetableXml } from './pt-filter.js';
 
 const SIRI = 'https://siri.banenor.no/jbv';
 const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
@@ -23,6 +24,28 @@ async function proxyXml(request, upstreamBase, allowed, ttl) {
   headers.set('Cache-Control', `public, max-age=${ttl}`);
   headers.set('X-Togoversikt-Upstream', 'Bane NOR SIRI');
   return new Response(response.body, { status: response.status, headers });
+}
+
+async function proxyProductionTimetable(request, ctx) {
+  const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
+  if(!/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
+  const cache=typeof caches!=='undefined' ? caches.default : null;
+  const cached=cache ? await cache.match(request) : null;
+  if(cached) return cached;
+  const upstream=new URL(`${SIRI}/pt/production-timetable.xml`);
+  copyParams(incoming.searchParams,upstream.searchParams,['ValidityPeriod.StartTime','ValidityPeriod.EndTime']);
+  const response=await fetch(upstream.toString(),{
+    cf:{cacheEverything:true,cacheTtl:600},headers:{'User-Agent':'Togoversikt.no/1.0'}
+  });
+  const xml=await response.text();
+  const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode):xml,{
+    status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=600','X-Togoversikt-Upstream':'Bane NOR SIRI PT'}
+  });
+  if(cache && response.ok) {
+    const stored=cache.put(request,result.clone());
+    if(ctx?.waitUntil) ctx.waitUntil(stored); else await stored;
+  }
+  return result;
 }
 
 
@@ -124,9 +147,7 @@ export default {
       ], 30);
     }
     if (url.pathname === '/api/pt') {
-      return proxyXml(request, `${SIRI}/pt/production-timetable.xml`, [
-        'ValidityPeriod.StartTime', 'ValidityPeriod.EndTime',
-      ], 600);
+      return proxyProductionTimetable(request,ctx);
     }
     if (url.pathname === '/api/togkart') return proxyTogkart();
     if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx);
