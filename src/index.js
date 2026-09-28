@@ -1,3 +1,6 @@
+import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
+import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
+
 const SIRI = 'https://siri.banenor.no/jbv';
 const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
 const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing';
@@ -37,6 +40,47 @@ async function proxyTogkart() {
   return new Response(response.body, { status: response.status, headers });
 }
 
+async function dailyGraphLine(date, line, ctx) {
+  const cache=typeof caches!=='undefined' ? caches.default : null;
+  const cacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${date}/${line}`);
+  const cached=cache ? await cache.match(cacheKey) : null;
+  if(cached) return cached.json();
+  const response=await fetch(graphUrl(date,line),{
+    cf:{cacheEverything:true,cacheTtl:900},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(20000)
+  });
+  if(!response.ok || !String(response.headers.get('Content-Type') || '').includes('application/pdf')) throw new Error(`Rutegraf ${line} svarte ${response.status}`);
+  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(await response.arrayBuffer()))],source_time:new Date().toISOString()};
+  if(cache) {
+    const response=Response.json(data,{headers:{'Cache-Control':'public, max-age=900'}});
+    const stored=cache.put(cacheKey,response);
+    if(ctx?.waitUntil) ctx.waitUntil(stored); else await stored;
+  }
+  return data;
+}
+
+async function dailyGraphNumbers(date, locationCode, ctx) {
+  const configured=STATION_GRAPH_LINES[locationCode];
+  const lines=configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
+  const results=await Promise.all(lines.map(async line=>{
+    try { return await dailyGraphLine(date,line,ctx); } catch { return null; }
+  }));
+  const loaded=results.filter(Boolean);
+  return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],graphs_loaded:loaded.length,
+    graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null};
+}
+
+async function dailyGraphMatches(request, ctx) {
+  const url=new URL(request.url), date=url.searchParams.get('date') || '';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
+  const candidates=(url.searchParams.get('trains') || '').split(',').map(x=>x.trim()).filter(x=>/^\d{1,6}$/.test(x)).slice(0,500);
+  const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
+  const data=await dailyGraphNumbers(date,locationCode,ctx);
+  return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
+    graphs_expected:data.graphs_expected,source_time:data.source_time},{
+    headers:{'Cache-Control':'public, max-age=300'}
+  });
+}
+
 async function proxyNearest(request) {
   const incoming = new URL(request.url);
   const upstream = new URL(ENTUR);
@@ -62,7 +106,7 @@ async function proxyNearest(request) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (request.method !== 'GET' && url.pathname.startsWith('/api/')) {
       return new Response('Method Not Allowed', { status: 405 });
@@ -85,10 +129,15 @@ export default {
       ], 600);
     }
     if (url.pathname === '/api/togkart') return proxyTogkart();
+    if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx);
     if (url.pathname === '/api/nearest') return proxyNearest(request);
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok', mode: 'Cloudflare Worker proxy', time: new Date().toISOString() });
     }
     return env.ASSETS.fetch(request);
+  },
+  async scheduled(_controller, _env, ctx) {
+    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+    ctx.waitUntil(dailyGraphNumbers(date,'',ctx));
   },
 };

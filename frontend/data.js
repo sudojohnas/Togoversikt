@@ -344,7 +344,7 @@ export function mergeLiveItems(plannedItems=[], smItems=[], togkartItems=[]) {
   const merged=new Map(plannedItems.map(item=>[item.journey_id,item]));
   for(const item of [...smItems,...togkartItems]) {
     const base=merged.get(item.journey_id);
-    merged.set(item.journey_id,base?{...base,...item,
+    merged.set(item.journey_id,base?{...base,...item,graph_fallback:false,
       origin:base.origin || item.origin,destination:base.destination || item.destination,
       operator:base.operator || item.operator,category:base.category || item.category,
       line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
@@ -381,6 +381,17 @@ async function getPlan(date, force=false) {
   const cached=planCache.get(date); if(cached && Date.now()-cached.ts<600000) return cached.data;
   const p=new URLSearchParams({'ValidityPeriod.StartTime':zonedIso(addDays(date,-1),'16:00'),'ValidityPeriod.EndTime':zonedIso(addDays(date,1),'00:00')});
   const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(date,{ts:Date.now(),data}); return data;
+}
+async function graphFallbackItems(plan, locationCode, date, fromTime, toTime) {
+  const items=queryDataset(plan,locationCode,date,fromTime,toTime);
+  if(!items.length) return [];
+  const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
+  const p=new URLSearchParams({date,location:locationCode,trains:trains.join(',')});
+  const response=await fetchJson(`/api/daily-graphs?${p}`);
+  if(!response.graphs_loaded) return items;
+  const found=new Set((response.trains || []).map(String));
+  return items.filter(item=>found.has(String(item.train_no))).map(item=>({...item,
+    graph_fallback:true,source:'Bane NOR rutegraf'}));
 }
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false) {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
@@ -466,13 +477,16 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     if(historical) {
       const et=await getLiveEt();
       const etItems=queryDataset(et,locationCode,date,fromTime,toTime);
+      let graphItems=[];
+      try { graphItems=await graphFallbackItems(await getPlan(date),locationCode,date,fromTime,toTime); } catch {}
       try {
         const live=await getTogkart();
         const liveItems=await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime));
-        const merged=new Map(etItems.map(item=>[item.journey_id,item]));
+        const merged=new Map(graphItems.map(item=>[item.journey_id,item]));
+        for(const item of etItems) merged.set(item.journey_id,{...merged.get(item.journey_id),...item,graph_fallback:false});
         for(const item of liveItems) {
           const base=merged.get(item.journey_id);
-          merged.set(item.journey_id,base?{...base,...item,
+          merged.set(item.journey_id,base?{...base,...item,graph_fallback:false,
             origin:base.origin || item.origin,destination:base.destination || item.destination,
             operator:base.operator || item.operator,category:base.category || item.category,
             line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
@@ -480,7 +494,9 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
         return {items,source_time:live.source_time || et.source_time,mode:'live',location,location_code:locationCode,date};
       } catch {}
-      return {items:etItems,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+      const merged=new Map(graphItems.map(item=>[item.journey_id,item]));
+      for(const item of etItems) merged.set(item.journey_id,{...merged.get(item.journey_id),...item,graph_fallback:false});
+      return {items:[...merged.values()],source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
@@ -489,7 +505,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     let plannedItems=[], smItems=[], smTime=null, liveItems=[], liveTime=null;
     try {
       const plan=await getPlan(date);
-      plannedItems=queryDataset(plan,locationCode,date,fromTime,toTime);
+      plannedItems=await graphFallbackItems(plan,locationCode,date,fromTime,toTime);
     } catch {}
     try {
       const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,true);

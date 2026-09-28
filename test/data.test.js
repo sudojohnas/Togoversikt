@@ -123,15 +123,15 @@ test('keeps upcoming cancelled calls visible', () => {
 
 test('uses the daily plan as fallback for trains missing from live feeds', () => {
   const planned=[
-    {journey_id:'5749:2026-09-28',train_no:'5749',time:'12:20',status:'Planlagt',origin:'Koppang',destination:'Trondheim S',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'TND'},
-    {journey_id:'85702:2026-09-28',train_no:'85702',time:'09:49',status:'Planlagt',origin:'Trondheim S',destination:'Alnabru',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'ALB'},
+    {journey_id:'5749:2026-09-28',train_no:'5749',time:'12:20',status:'Planlagt',origin:'Koppang',destination:'Trondheim S',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'TND',graph_fallback:true},
+    {journey_id:'85702:2026-09-28',train_no:'85702',time:'09:49',status:'Planlagt',origin:'Trondheim S',destination:'Alnabru',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'ALB',graph_fallback:true},
   ];
   const live=[
     {journey_id:'85702:2026-09-28',train_no:'85702',time:'09:49',status:'Innstilt',origin:'',destination:'',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'ALB'},
   ];
   assert.deepEqual(mergeLiveItems(planned,[],live),[
     planned[0],
-    {...planned[1],status:'Innstilt'},
+    {...planned[1],status:'Innstilt',graph_fallback:false},
   ]);
 });
 

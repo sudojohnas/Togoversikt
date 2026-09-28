@@ -3,6 +3,9 @@
   "name": "togoversikt",
   "main": "src/index.js",
   "compatibility_date": "2026-09-26",
+  "triggers": {
+    "crons": ["*/15 * * * *"]
+  },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

@@ -44,7 +44,7 @@ function formatSourceTime(value) {
 function dataSignature(data) {
   return JSON.stringify((data.items || []).map(x => [
     x.journey_id, x.time, x.planned_time, x.expected_time, x.actual_time,
-    x.platform, x.status, x.current_location
+    x.platform, x.status, x.current_location, x.graph_fallback
   ]));
 }
 
@@ -119,6 +119,7 @@ function timeCell(x) {
 function statusCell(x) {
   const s = String(x.status || '');
   const passing = x.passing ? '<span class="desktop-passing">Passerende</span>' : '';
+  const graph = x.graph_fallback ? '<small>Hentet fra rutegraf</small>' : '';
   if (s.includes('Innstilt')) return `${passing}<strong>Innstilt</strong>`;
   if (s.includes('Forsinket')) {
     const match = s.match(/\+(\d+) min/);
@@ -127,7 +128,7 @@ function statusCell(x) {
   }
   if (s.includes('Passert')) return `${passing}<strong>Passert</strong>`;
   if (s.includes('Ankommet')) return `${passing}<strong>Ankommet</strong>`;
-  return `${passing}<strong>${esc(s || 'I rute')}</strong>`;
+  return `${passing}<strong>${esc(s || 'I rute')}</strong>${graph}`;
 }
 
 function unconfirmedNote(x) {
