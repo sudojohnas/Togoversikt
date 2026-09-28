@@ -16,6 +16,7 @@ let updateCheckRunning = false;
 let lastTrainItems = [];
 let activeLocationCode = null;
 let loadRequestId = 0;
+let boardMode = 'arrival';
 const hiddenCategories = new Set();
 const hiddenTracks = new Set();
 
@@ -56,6 +57,7 @@ function currentTrainQuery(fromTime=$('from').value || '00:00') {
     fromTime,
     toTime: $('to').value || '23:59',
     today: localDate(new Date()),
+    eventType: boardMode,
   };
 }
 async function fetchLocations(q) { return searchLocationData(q); }
@@ -474,6 +476,21 @@ $('filter-close').addEventListener('click', () => $('filter-dialog').close());
 $('filter-done').addEventListener('click', () => $('filter-dialog').close());
 $('filter-reset').addEventListener('click', resetFilters);
 $('filter-dialog').addEventListener('click', e => { if (e.target === $('filter-dialog')) $('filter-dialog').close(); });
+
+function setBoardMode(mode) {
+  if (mode !== 'arrival' && mode !== 'departure') return;
+  boardMode = mode;
+  const arrivals = mode === 'arrival';
+  $('show-arrivals').classList.toggle('active', arrivals);
+  $('show-departures').classList.toggle('active', !arrivals);
+  $('show-arrivals').setAttribute('aria-pressed', String(arrivals));
+  $('show-departures').setAttribute('aria-pressed', String(!arrivals));
+  $('time-heading').textContent = arrivals ? 'Ankomst' : 'Avgang';
+  if ($('location').dataset.code) loadTrains();
+}
+
+$('show-arrivals').addEventListener('click', () => setBoardMode('arrival'));
+$('show-departures').addEventListener('click', () => setBoardMode('departure'));
 
 function refreshTrains() {
   if (autoFromNow && $('date').value === localDate(new Date())) $('from').value = localTime(new Date());

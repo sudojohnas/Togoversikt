@@ -6,6 +6,9 @@
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
+  "kv_namespaces": [
+    { "binding": "ROUTE_GRAPHS" }
+  ],
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

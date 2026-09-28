@@ -52,6 +52,11 @@
         <div id="source-card" class="summary-update-card" role="button" tabindex="0" aria-label="Oppdater togdata"><strong id="source" class="summary-refresh">Oppdater</strong><span id="updated">Sist oppdatert –</span></div>
       </section>
 
+      <div class="board-mode" role="group" aria-label="Velg tidstype">
+        <button id="show-arrivals" class="active" type="button" aria-pressed="true">Ankomst</button>
+        <button id="show-departures" type="button" aria-pressed="false">Avgang</button>
+      </div>
+
       <div id="update-notice" class="update-notice" hidden><span>Nye togdata er tilgjengelige.</span><button id="apply-update" type="button">Oppdater</button></div>
 
       <section id="train-loading" class="panel train-loading" aria-live="polite" hidden>
@@ -61,7 +66,7 @@
 
       <section id="table-panel" class="panel table-panel">
         <table>
-          <thead><tr><th>Ankomst</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
+          <thead><tr><th id="time-heading">Ankomst</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
           <tbody id="rows"><tr><td colspan="7" class="empty">Henter togdata …</td></tr></tbody>
         </table>
       </section>

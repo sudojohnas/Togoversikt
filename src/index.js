@@ -1,10 +1,12 @@
-import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
+import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
 import { filterProductionTimetableXml } from './pt-filter.js';
 
 const SIRI = 'https://siri.banenor.no/jbv';
 const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
 const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing';
+const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -63,41 +65,86 @@ async function proxyTogkart() {
   return new Response(response.body, { status: response.status, headers });
 }
 
-async function dailyGraphLine(date, line, ctx) {
+async function graphContentHash(data) {
+  const digest=await crypto.subtle.digest('SHA-256',data);
+  return [...new Uint8Array(digest)].map(value=>value.toString(16).padStart(2,'0')).join('');
+}
+
+async function storeGraphResult(cache, cacheKey, store, storeKey, data, ctx, persist=false) {
+  if(cache) {
+    const response=Response.json(data,{headers:{'Cache-Control':`public, max-age=${GRAPH_CACHE_SECONDS}`}});
+    const pending=cache.put(cacheKey,response);
+    if(ctx?.waitUntil) ctx.waitUntil(pending); else await pending;
+  }
+  if(persist && store) await store.put(storeKey,JSON.stringify(data));
+}
+
+async function dailyGraphLine(date, line, ctx, store) {
   const cache=typeof caches!=='undefined' ? caches.default : null;
   const cacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${date}/${line}`);
-  const cached=cache ? await cache.match(cacheKey) : null;
-  if(cached) return cached.json();
+  const storeKey=`daily-graph:${date}:${line}`;
+  const cachedResponse=cache ? await cache.match(cacheKey) : null;
+  let cached=cachedResponse ? await cachedResponse.json() : null;
+  if(!cached && store) {
+    cached=await store.get(storeKey,'json');
+    if(cached) await storeGraphResult(cache,cacheKey,null,storeKey,cached,ctx);
+  }
+  const checkedAt=Date.parse(cached?.checked_at || '');
+  if(cached && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
+
+  if(cached) {
+    try {
+      const head=await fetch(graphUrl(date,line),{
+        method:'HEAD',cf:{cacheEverything:true,cacheTtl:120},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(10000)
+      });
+      if(!head.ok) return cached;
+      const remoteVersion=graphResponseVersion(head.headers);
+      if(remoteVersion && remoteVersion===cached.remote_version) {
+        const unchanged={...cached,checked_at:new Date().toISOString()};
+        await storeGraphResult(cache,cacheKey,null,storeKey,unchanged,ctx);
+        return unchanged;
+      }
+    } catch {
+      return cached;
+    }
+  }
+
   const response=await fetch(graphUrl(date,line),{
-    cf:{cacheEverything:true,cacheTtl:900},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(20000)
+    cf:{cacheEverything:true,cacheTtl:120},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(20000)
   });
   if(!response.ok || !String(response.headers.get('Content-Type') || '').includes('application/pdf')) throw new Error(`Rutegraf ${line} svarte ${response.status}`);
-  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(await response.arrayBuffer()))],source_time:new Date().toISOString()};
-  if(cache) {
-    const response=Response.json(data,{headers:{'Cache-Control':'public, max-age=900'}});
-    const stored=cache.put(cacheKey,response);
-    if(ctx?.waitUntil) ctx.waitUntil(stored); else await stored;
+  const pdf=await response.arrayBuffer();
+  const contentHash=await graphContentHash(pdf);
+  const remoteVersion=graphResponseVersion(response.headers);
+  if(cached?.content_hash===contentHash) {
+    const unchanged={...cached,remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
+    await storeGraphResult(cache,cacheKey,null,storeKey,unchanged,ctx);
+    return unchanged;
   }
+  const now=new Date().toISOString();
+  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(pdf))],source_time:now,checked_at:now,
+    remote_version:remoteVersion,content_hash:contentHash};
+  await storeGraphResult(cache,cacheKey,store,storeKey,data,ctx,true);
   return data;
 }
 
-async function dailyGraphNumbers(date, locationCode, ctx) {
+async function dailyGraphNumbers(date, locationCode, ctx, store) {
   const configured=STATION_GRAPH_LINES[locationCode];
   const lines=configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
   const results=await Promise.all(lines.map(async line=>{
-    try { return await dailyGraphLine(date,line,ctx); } catch { return null; }
+    try { return await dailyGraphLine(date,line,ctx,store); } catch { return null; }
   }));
   const loaded=results.filter(Boolean);
   return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],graphs_loaded:loaded.length,
     graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null};
 }
 
-async function dailyGraphMatches(request, ctx) {
+async function dailyGraphMatches(request, ctx, store) {
   const url=new URL(request.url), date=url.searchParams.get('date') || '';
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
   const candidates=(url.searchParams.get('trains') || '').split(',').map(x=>x.trim()).filter(x=>/^\d{1,6}$/.test(x)).slice(0,500);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
-  const data=await dailyGraphNumbers(date,locationCode,ctx);
+  const data=await dailyGraphNumbers(date,locationCode,ctx,store);
   return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
     graphs_expected:data.graphs_expected,source_time:data.source_time},{
     headers:{'Cache-Control':'public, max-age=300'}
@@ -150,15 +197,15 @@ export default {
       return proxyProductionTimetable(request,ctx);
     }
     if (url.pathname === '/api/togkart') return proxyTogkart();
-    if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx);
+    if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx,env.ROUTE_GRAPHS);
     if (url.pathname === '/api/nearest') return proxyNearest(request);
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok', mode: 'Cloudflare Worker proxy', time: new Date().toISOString() });
     }
     return env.ASSETS.fetch(request);
   },
-  async scheduled(_controller, _env, ctx) {
+  async scheduled(_controller, env, ctx) {
     const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    ctx.waitUntil(dailyGraphNumbers(date,'',ctx));
+    ctx.waitUntil(dailyGraphNumbers(date,'',ctx,env.ROUTE_GRAPHS));
   },
 };

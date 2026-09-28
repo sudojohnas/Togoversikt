@@ -197,6 +197,25 @@ test('uses arrival time on the train card when arrival and departure both exist'
   assert.deepEqual(callWindowState(call,'2026-09-27','13:00','15:00'),{include:true,clock:'14:02',overdue:false});
 });
 
+test('selects arrival or departure time for the station board', () => {
+  const call = {
+    ...baseCall,
+    aimed_arrival_iso:'2026-09-27T14:00:00+02:00', expected_arrival_iso:'2026-09-27T14:02:00+02:00', actual_arrival_iso:'',
+    aimed_departure_iso:'2026-09-27T14:05:00+02:00', expected_departure_iso:'2026-09-27T14:07:00+02:00', actual_departure_iso:'',
+  };
+  assert.deepEqual(callDisplayTimes(call,'arrival'),{planned:'14:00',expected:'14:02',actual:null});
+  assert.deepEqual(callDisplayTimes(call,'departure'),{planned:'14:05',expected:'14:07',actual:null});
+  assert.deepEqual(callWindowState(call,'2026-09-27','14:03','15:00',false,'arrival'),{include:false,clock:'14:02',overdue:false});
+  assert.deepEqual(callWindowState(call,'2026-09-27','14:03','15:00',false,'departure'),{include:true,clock:'14:07',overdue:false});
+});
+
+test('does not show an origin as an arrival or a destination as a departure', () => {
+  const origin={...baseCall};
+  const destination={...baseCall,aimed_departure_iso:'',planned_iso:'2026-09-27T18:00:00+02:00',aimed_arrival_iso:'2026-09-27T18:00:00+02:00'};
+  assert.equal(callWindowState(origin,'2026-09-27','00:00','23:59',false,'arrival').include,false);
+  assert.equal(callWindowState(destination,'2026-09-27','00:00','23:59',false,'departure').include,false);
+});
+
 test('bases the card delay on arrival rather than departure', () => {
   const call = {
     ...baseCall,
