@@ -113,6 +113,14 @@ test('removes completed and cancelled calls before now but retains overdue activ
   assert.deepEqual(filterLiveItems(items,'14:08','23:59').map(x=>x.train_no),['1920','653']);
 });
 
+test('keeps upcoming cancelled calls visible', () => {
+  const items = [
+    {train_no:'5749',time:'09:30',status:'Innstilt'},
+    {train_no:'85702',time:'09:49',status:'Innstilt'},
+  ];
+  assert.deepEqual(filterLiveItems(items,'08:00','23:59').map(x=>x.train_no),['5749','85702']);
+});
+
 test('expires an old planned train when no live time was ever reported', () => {
   const stale={...baseCall,planned_iso:'2026-09-27T16:02:39+02:00',aimed_departure_iso:'2026-09-27T16:02:39+02:00'};
   assert.deepEqual(

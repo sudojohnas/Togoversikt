@@ -323,8 +323,11 @@ export function filterLiveItems(items, fromTime, toTime) {
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
     const status=String(item.status || '').toLowerCase();
-    if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) return false;
+    if(status.includes('passert') || status.includes('ankommet')) return false;
     if(item.time>=fromTime) return true;
+    // Keep upcoming cancellations on the board, but remove them once their
+    // scheduled time has passed just like other completed calls.
+    if(status.includes('innstilt')) return false;
     const unconfirmedAge=minutes(fromTime)-minutes(item.time);
     return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
