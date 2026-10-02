@@ -121,6 +121,14 @@ test('keeps upcoming cancelled calls visible', () => {
   assert.deepEqual(filterLiveItems(items,'08:00','23:59').map(x=>x.train_no),['5749','85702']);
 });
 
+test('uses a future start time as a strict lower boundary', () => {
+  const items = [
+    {train_no:'1',time:'22:40',actual_time:'22:42',status:'Forsinket'},
+    {train_no:'2',time:'23:21',actual_time:null,status:'Hentet fra rutegraf, ingen sanntidsdata'},
+  ];
+  assert.deepEqual(filterLiveItems(items,'23:00','23:59',false).map(item=>item.train_no),['2']);
+});
+
 test('uses the daily plan as fallback for trains missing from live feeds', () => {
   const planned=[
     {journey_id:'5749:2026-09-28',train_no:'5749',time:'12:20',status:'Planlagt',origin:'Koppang',destination:'Trondheim S',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'TND',graph_fallback:true},

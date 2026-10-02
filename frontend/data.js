@@ -328,12 +328,13 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return items;
 }
-export function filterLiveItems(items, fromTime, toTime) {
+export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
     const status=String(item.status || '').toLowerCase();
     if(status.includes('passert') || status.includes('ankommet')) return false;
     if(item.time>=fromTime) return true;
+    if(!includeEarlier) return false;
     // Keep upcoming cancellations on the board, but remove them once their
     // scheduled time has passed just like other completed calls.
     if(status.includes('innstilt')) return false;
@@ -420,6 +421,12 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   });
   return [...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
 }
+async function getGraphItems(locationCode,date,fromTime,toTime,eventType) {
+  let plan={journeys:[],source_time:null};
+  try { plan=await getPlan(date,locationCode); } catch {}
+  try { return await graphFallbackItems(plan,locationCode,date,fromTime,toTime,eventType); }
+  catch { return queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType); }
+}
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false, eventType='arrival') {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
   if(String(service.Status).toLowerCase()==='false' || service.ErrorCondition) return {unsupported:true,items:[],source_time:service.ResponseTimestamp || null};
@@ -500,11 +507,12 @@ async function enrichSmItems(items, locationCode, eventType) {
 export async function queryTrains({locationCode,location,date,fromTime,toTime,today,eventType='arrival'}) {
   if(date===today) {
     const nowOslo=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
+    const strictStart=minutes(fromTime)>minutes(nowOslo);
     const historical=minutes(toTime)<minutes(nowOslo) || minutes(fromTime)<minutes(nowOslo)-30;
     if(historical) {
       const [et,graphItems,liveResult]=await Promise.all([
         getLiveEt(),
-        (async()=>{ try { return await graphFallbackItems(await getPlan(date,locationCode),locationCode,date,fromTime,toTime,eventType); } catch { return []; } })(),
+        getGraphItems(locationCode,date,fromTime,toTime,eventType),
         (async()=>{ try {
           const live=await getTogkart();
           return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType))};
@@ -533,28 +541,26 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const span=Math.max(1,minutes(toTime)-smStartMinutes);
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,smStart),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
     const [plannedItems,smResult,liveResult]=await Promise.all([
+      getGraphItems(locationCode,date,fromTime,toTime,eventType),
       (async()=>{ try {
-        return await graphFallbackItems(await getPlan(date,locationCode),locationCode,date,fromTime,toTime,eventType);
-      } catch { return []; } })(),
-      (async()=>{ try {
-        const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,true,eventType);
+        const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,!strictStart,eventType);
         return sm.unsupported ? {items:[],time:null} : {items:await enrichSmItems(sm.items,locationCode,eventType),time:sm.source_time};
       } catch { return {items:[],time:null}; } })(),
       (async()=>{ try {
         const live=await getTogkart();
         // Keep today's completed calls until after merging so their actual times can
         // replace stale Stop Monitoring entries before the final time filter.
-        return {items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,'00:00',toTime,true,eventType)),time:live.source_time};
+        return {items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,strictStart?fromTime:'00:00',toTime,!strictStart,eventType)),time:live.source_time};
       } catch { return {items:[],time:null}; } })(),
     ]);
     const smItems=smResult.items, smTime=smResult.time, liveItems=liveResult.items, liveTime=liveResult.time;
     if(plannedItems.length || smItems.length || liveItems.length) {
-      const items=filterLiveItems(mergeLiveItems(plannedItems,smItems,liveItems),fromTime,toTime)
+      const items=filterLiveItems(mergeLiveItems(plannedItems,smItems,liveItems),fromTime,toTime,!strictStart)
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt();
-    const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,true,eventType),fromTime,toTime);
+    const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),fromTime,toTime,!strictStart);
     return {items,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
   const pt=await getPlan(date,locationCode); return {items:queryDataset(pt,locationCode,date,fromTime,toTime,false,eventType),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};

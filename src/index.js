@@ -120,7 +120,7 @@ async function dailyGraphLine(date, line, ctx, store) {
   if(cached?.content_hash===contentHash) {
     const unchanged={...cached,possible_work_trains:possibleWorkTrains,
       remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
-    await storeGraphResult(cache,cacheKey,null,storeKey,unchanged,ctx);
+    await storeGraphResult(cache,cacheKey,store,storeKey,unchanged,ctx,true);
     return unchanged;
   }
   const now=new Date().toISOString();
@@ -134,9 +134,15 @@ async function dailyGraphLine(date, line, ctx, store) {
 async function dailyGraphNumbers(date, locationCode, ctx, store) {
   const configured=STATION_GRAPH_LINES[locationCode];
   const lines=configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
-  const results=await Promise.all(lines.map(async line=>{
-    try { return await dailyGraphLine(date,line,ctx,store); } catch { return null; }
-  }));
+  const results=new Array(lines.length);
+  let cursor=0;
+  const workers=Array.from({length:Math.min(2,lines.length)},async()=>{
+    while(cursor<lines.length) {
+      const index=cursor++;
+      try { results[index]=await dailyGraphLine(date,lines[index],ctx,store); } catch { results[index]=null; }
+    }
+  });
+  await Promise.all(workers);
   const loaded=results.filter(Boolean);
   return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],
     possible_work_trains:loaded.flatMap(result=>result.possible_work_trains || []),graphs_loaded:loaded.length,
