@@ -229,7 +229,7 @@ function applyTrainData(d) {
   renderTrainRows();
 }
 
-async function loadTrains() {
+async function loadTrains(allowModeFallback=true) {
   const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
@@ -244,7 +244,21 @@ async function loadTrains() {
   $('table-panel').hidden = true;
   $('update-notice').hidden = true;
   try {
-    const d = await queryTrains(currentTrainQuery());
+    let d = await queryTrains(currentTrainQuery());
+    if (requestId !== loadRequestId) return;
+    if (allowModeFallback && !(d.items || []).length) {
+      const fallbackMode = boardMode === 'arrival' ? 'departure' : 'arrival';
+      try {
+        const fallback = await queryTrains({...currentTrainQuery(), eventType:fallbackMode});
+        if ((fallback.items || []).length) {
+          boardMode = fallbackMode;
+          updateBoardModeControls();
+          d = fallback;
+        }
+      } catch (_) {
+        // Behold den valgte, tomme visningen hvis alternativet ikke kan lastes.
+      }
+    }
     if (requestId !== loadRequestId) return;
     applyTrainData(d);
   } catch (e) {
@@ -522,16 +536,20 @@ $('filter-done').addEventListener('click', () => $('filter-dialog').close());
 $('filter-reset').addEventListener('click', resetFilters);
 $('filter-dialog').addEventListener('click', e => { if (e.target === $('filter-dialog')) $('filter-dialog').close(); });
 
-function setBoardMode(mode) {
-  if (mode !== 'arrival' && mode !== 'departure') return;
-  boardMode = mode;
-  const arrivals = mode === 'arrival';
+function updateBoardModeControls() {
+  const arrivals = boardMode === 'arrival';
   $('show-arrivals').classList.toggle('active', arrivals);
   $('show-departures').classList.toggle('active', !arrivals);
   $('show-arrivals').setAttribute('aria-pressed', String(arrivals));
   $('show-departures').setAttribute('aria-pressed', String(!arrivals));
   $('time-heading').textContent = arrivals ? 'Ankomst' : 'Avgang';
-  if ($('location').dataset.code) loadTrains();
+}
+
+function setBoardMode(mode) {
+  if (mode !== 'arrival' && mode !== 'departure') return;
+  boardMode = mode;
+  updateBoardModeControls();
+  if ($('location').dataset.code) loadTrains(false);
 }
 
 $('show-arrivals').addEventListener('click', () => setBoardMode('arrival'));
