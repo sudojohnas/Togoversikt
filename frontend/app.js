@@ -123,6 +123,7 @@ function timeCell(x) {
 function statusCell(x) {
   const s = String(x.status || '');
   const passing = x.passing ? '<span class="desktop-passing">Passerende</span>' : '';
+  if (x.graph_only) return `${passing}<strong>Hentet fra rutegraf</strong><small>Ingen sanntidsdata</small>`;
   const graph = x.graph_fallback ? '<small>Hentet fra rutegraf</small>' : '';
   if (s.includes('Innstilt')) return `${passing}<strong>Innstilt</strong>`;
   if (s.includes('Forsinket')) {

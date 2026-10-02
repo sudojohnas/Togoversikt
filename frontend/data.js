@@ -414,7 +414,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     return [{journey_id:train.journey_id,train_no:String(train.train_no),line:`Graf ${train.line_number}`,
       category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',operator_code:'BN?',origin:names.get(train.origin_code) || train.origin_code,
       destination:names.get(train.destination_code) || train.destination_code,direction_ref:train.destination_code || '',time:stop.time,
-      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Kun rutegraf',
+      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',
       current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
       graph_fallback:true,graph_only:true,graph_route:route}];
   });
@@ -576,10 +576,10 @@ export function detailFromJourney(journey, locationCode, sourceTime) {
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   if(item?.graph_only) {
     return {journey_id:item.journey_id,train_no:item.train_no,category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',
-      origin:item.origin,destination:item.destination,status:'Kun rutegraf',current_location:'Ikke tilgjengelig',source_time:null,
+      origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
         planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
-        actual_departure:null,platform:'',passing:false,status:'Kun rutegraf',state:'planned',selected:stop.code===locationCode}))};
+        actual_departure:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
   }
   let dataset;
   if(date===today) {
