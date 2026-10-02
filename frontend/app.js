@@ -452,6 +452,48 @@ async function shareSite() {
 
 $('share').addEventListener('click', shareSite);
 
+const menuToggle = $('menu-toggle');
+const siteMenuPanel = $('site-menu-panel');
+const trainMapFrame = $('train-map-frame');
+
+function setMenuOpen(open) {
+  siteMenuPanel.hidden = !open;
+  menuToggle.setAttribute('aria-expanded', String(open));
+  menuToggle.setAttribute('aria-label', open ? 'Lukk meny' : 'Åpne meny');
+  if (open) $('open-train-map').focus();
+}
+
+function showTrainMap() {
+  setMenuOpen(false);
+  $('overview-view').hidden = true;
+  $('train-map-view').hidden = false;
+  if (!trainMapFrame.src) trainMapFrame.src = trainMapFrame.dataset.src;
+  history.replaceState(null, '', '#togkart');
+  $('close-train-map').focus();
+}
+
+function hideTrainMap() {
+  $('train-map-view').hidden = true;
+  $('overview-view').hidden = false;
+  history.replaceState(null, '', `${location.pathname}${location.search}`);
+  menuToggle.focus();
+}
+
+menuToggle.addEventListener('click', () => setMenuOpen(siteMenuPanel.hidden));
+$('open-train-map').addEventListener('click', showTrainMap);
+$('close-train-map').addEventListener('click', hideTrainMap);
+trainMapFrame.addEventListener('load', () => $('train-map-loading').classList.add('loaded'));
+document.addEventListener('click', e => {
+  if (!e.target.closest('.site-menu')) setMenuOpen(false);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !siteMenuPanel.hidden) {
+    setMenuOpen(false);
+    menuToggle.focus();
+  }
+});
+if (location.hash === '#togkart') showTrainMap();
+
 async function checkForUpdates() {
   if (updateCheckRunning || $('results').hidden || !$('location').dataset.code) return;
   if ($('date').value !== localDate(new Date()) || document.hidden) return;

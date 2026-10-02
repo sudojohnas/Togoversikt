@@ -11,9 +11,21 @@
   <main class="wrap">
     <header class="topbar">
       <div><h1>Togoversikt</h1></div>
-      <button id="share" class="share-btn" type="button" aria-label="Del Togoversikt"><span class="share-icon" aria-hidden="true">↗</span><span>Del siden</span></button>
+      <div class="header-actions">
+        <button id="share" class="share-btn" type="button" aria-label="Del Togoversikt"><span class="share-icon" aria-hidden="true">↗</span><span>Del siden</span></button>
+        <div class="site-menu">
+          <button id="menu-toggle" class="menu-btn" type="button" aria-label="Åpne meny" aria-haspopup="menu" aria-expanded="false"><span class="menu-icon" aria-hidden="true">☰</span><span>Meny</span></button>
+          <div id="site-menu-panel" class="site-menu-panel" role="menu" hidden>
+            <button id="open-train-map" class="site-menu-item" type="button" role="menuitem">
+              <span class="site-menu-item-icon" aria-hidden="true">⌖</span>
+              <span><strong>Togkart</strong><small>Se tog i sanntid hos Bane NOR</small></span>
+            </button>
+          </div>
+        </div>
+      </div>
     </header>
 
+    <div id="overview-view">
     <section class="panel filters">
       <div class="field location-field">
         <label for="location">Stasjon / blokkpost</label>
@@ -72,6 +84,26 @@
       </section>
       <p class="note">Kilde: Bane NOR SIRI og daglige rutegrafer. Sanntidsdata kan være ufullstendige og skal ikke brukes som sikkerhetskritisk informasjon.</p>
     </div>
+    </div>
+
+    <section id="train-map-view" class="train-map-view" hidden aria-labelledby="train-map-title">
+      <div class="train-map-head">
+        <div>
+          <div class="kicker">Bane NOR</div>
+          <h2 id="train-map-title">Togkart i sanntid</h2>
+          <p>Kartet kan be om tilgang til posisjonen din for å vise området rundt deg.</p>
+        </div>
+        <div class="train-map-actions">
+          <a href="https://togkart.banenor.no/" target="_blank" rel="noopener noreferrer">Åpne fullversjon</a>
+          <button id="close-train-map" type="button">Tilbake til oversikten</button>
+        </div>
+      </div>
+      <div class="train-map-frame-wrap panel">
+        <div id="train-map-loading" class="train-map-loading"><span class="spinner" aria-hidden="true"></span><span>Laster togkart …</span></div>
+        <iframe id="train-map-frame" title="Bane NOR togkart i sanntid" data-src="https://togkart.banenor.no/?popup=false" allow="geolocation" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+      </div>
+      <p class="note">Kart og sanntidsinformasjon leveres av Bane NOR. Kartet må ikke brukes som sikkerhetskritisk grunnlag.</p>
+    </section>
   </main>
 
   <dialog id="filter-dialog" class="filter-dialog">
