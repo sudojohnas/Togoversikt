@@ -143,6 +143,18 @@ test('combines arrivals and departures while keeping one graph-only event', () =
   ]);
 });
 
+test('removes a graph-only guess when the other event has the same train number', () => {
+  const arrival=[
+    {journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Mulig arbeidstog',graph_only:true},
+  ];
+  const departure=[
+    {journey_id:'8402:2026-10-02',train_no:'8402',time:'23:24',category:'Godstog'},
+  ];
+  assert.deepEqual(combineEventItems(arrival,departure).map(item=>[item.train_no,item.time,item.category,item.event_type]),[
+    ['8402','23:24','Godstog','departure'],
+  ]);
+});
+
 test('uses the daily plan as fallback for trains missing from live feeds', () => {
   const planned=[
     {journey_id:'5749:2026-09-28',train_no:'5749',time:'12:20',status:'Planlagt',origin:'Koppang',destination:'Trondheim S',operator:'CargoNet',category:'Godstog',line:'-',direction_ref:'TND',graph_fallback:true},
@@ -154,6 +166,19 @@ test('uses the daily plan as fallback for trains missing from live feeds', () =>
   assert.deepEqual(mergeLiveItems(planned,[],live),[
     planned[0],
     {...planned[1],status:'Innstilt',graph_fallback:false},
+  ]);
+});
+
+test('merges different source ids for the same train number and trusts the live category', () => {
+  const graph={
+    journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Mulig arbeidstog',
+    operator:'Bane NOR-bestilt',graph_only:true,graph_fallback:true,
+  };
+  const live={
+    journey_id:'8402:2026-10-02',train_no:'8402',time:'23:24',category:'Godstog',operator:'CargoNet',
+  };
+  assert.deepEqual(mergeLiveItems([graph],[],[live]),[
+    {...graph,...live,graph_fallback:false,graph_only:false},
   ]);
 });
 

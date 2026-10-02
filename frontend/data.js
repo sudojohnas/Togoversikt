@@ -359,16 +359,33 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
   });
 }
 export function mergeLiveItems(plannedItems=[], smItems=[], togkartItems=[]) {
-  const merged=new Map(plannedItems.map(item=>[item.journey_id,item]));
-  for(const item of [...smItems,...togkartItems]) {
-    const base=merged.get(item.journey_id);
-    merged.set(item.journey_id,base?{...base,...item,graph_fallback:false,
-      origin:base.origin || item.origin,destination:base.destination || item.destination,
-      operator:base.operator || item.operator,category:base.category || item.category,
-      line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
-  }
+  const merged=new Map(), keyByTrainNumber=new Map();
+  const trainKey=item=>String(item?.train_no || '').trim();
+  const put=(item,live=false)=>{
+    const number=trainKey(item);
+    const existingKey=merged.has(item.journey_id)?item.journey_id:keyByTrainNumber.get(number);
+    const base=existingKey?merged.get(existingKey):null;
+    const key=item.journey_id || existingKey || `train:${number}`;
+    if(existingKey && existingKey!==key) merged.delete(existingKey);
+    const category=item.category && item.category!=='Ukjent'?item.category:base?.category;
+    const operator=item.operator && item.operator!=='Ukjent'?item.operator:base?.operator;
+    if(base) {
+      const next={...base,...item,...(live?{graph_fallback:false}:{}),
+        ...((base.graph_only || item.graph_only) && live?{graph_only:false}:{})};
+      for(const [field,value] of Object.entries({
+        origin:item.origin || base.origin,destination:item.destination || base.destination,
+        operator:operator || item.operator,category:category || item.category,
+        line:item.line || base.line,direction_ref:item.direction_ref || base.direction_ref,
+      })) if(value!=null && value!=='') next[field]=value;
+      merged.set(key,next);
+    } else merged.set(key,item);
+    if(number && number!=='–') keyByTrainNumber.set(number,key);
+  };
+  for(const item of plannedItems) put(item);
+  for(const item of [...smItems,...togkartItems]) put(item,true);
   return [...merged.values()];
 }
+
 function offsetFor(date,time='12:00') {
   const probe=new Date(`${date}T${time}:00Z`);
   const value=new Intl.DateTimeFormat('en-US',{timeZone:'Europe/Oslo',timeZoneName:'longOffset'}).formatToParts(probe).find(p=>p.type==='timeZoneName')?.value || 'GMT+01:00';
@@ -517,11 +534,20 @@ async function enrichSmItems(items, locationCode, eventType) {
 }
 export function combineEventItems(arrivalItems=[],departureItems=[]) {
   const graphJourneys=new Set();
-  return [
+  const items=[
     ...arrivalItems.map(item=>({...item,event_type:item.graph_only?'graph':'arrival'})),
     ...departureItems.map(item=>({...item,event_type:item.graph_only?'graph':'departure'})),
-  ].filter(item=>{
+  ];
+  // A graph-only item is an inference. If either event feed has an ordinary
+  // record for the same train number, keep that record and discard the guess.
+  const trainNumber=item=>{
+    const value=String(item?.train_no || '').trim();
+    return value && value!=='–'?value:null;
+  };
+  const authoritativeNumbers=new Set(items.filter(item=>!item.graph_only).map(trainNumber).filter(Boolean));
+  return items.filter(item=>{
     if(!item.graph_only) return true;
+    if(authoritativeNumbers.has(trainNumber(item))) return false;
     if(graphJourneys.has(item.journey_id)) return false;
     graphJourneys.add(item.journey_id);
     return true;
@@ -549,21 +575,11 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       ]);
       const etItems=queryDataset(et,locationCode,date,fromTime,toTime,false,eventType);
       if(liveResult) {
-        const merged=new Map(graphItems.map(item=>[item.journey_id,item]));
-        for(const item of etItems) merged.set(item.journey_id,{...merged.get(item.journey_id),...item,graph_fallback:false});
-        for(const item of liveResult.items) {
-          const base=merged.get(item.journey_id);
-          merged.set(item.journey_id,base?{...base,...item,graph_fallback:false,
-            origin:base.origin || item.origin,destination:base.destination || item.destination,
-            operator:base.operator || item.operator,category:base.category || item.category,
-            line:base.line || item.line,direction_ref:base.direction_ref || item.direction_ref}:item);
-        }
-        const items=[...merged.values()].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
+        const items=mergeLiveItems(graphItems,etItems,liveResult.items)
+          .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
         return {items,source_time:liveResult.live.source_time || et.source_time,mode:'live',location,location_code:locationCode,date};
       }
-      const merged=new Map(graphItems.map(item=>[item.journey_id,item]));
-      for(const item of etItems) merged.set(item.journey_id,{...merged.get(item.journey_id),...item,graph_fallback:false});
-      return {items:[...merged.values()],source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+      return {items:mergeLiveItems(graphItems,etItems),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
