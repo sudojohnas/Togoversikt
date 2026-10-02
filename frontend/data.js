@@ -515,7 +515,25 @@ async function enrichSmItems(items, locationCode, eventType) {
       status:journeyCallStatus(journey,call,eventType), current_location:current?.name || null, source:'Bane NOR SIRI ET'};
   });
 }
+export function combineEventItems(arrivalItems=[],departureItems=[]) {
+  const graphJourneys=new Set();
+  return [
+    ...arrivalItems.map(item=>({...item,event_type:item.graph_only?'graph':'arrival'})),
+    ...departureItems.map(item=>({...item,event_type:item.graph_only?'graph':'departure'})),
+  ].filter(item=>{
+    if(!item.graph_only) return true;
+    if(graphJourneys.has(item.journey_id)) return false;
+    graphJourneys.add(item.journey_id);
+    return true;
+  }).sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}) || a.event_type.localeCompare(b.event_type));
+}
 export async function queryTrains({locationCode,location,date,fromTime,toTime,today,eventType='arrival'}) {
+  if(eventType==='both') {
+    const arrival=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'arrival'});
+    const departure=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'departure'});
+    return {...arrival,items:combineEventItems(arrival.items,departure.items),
+      source_time:[arrival.source_time,departure.source_time].filter(Boolean).sort().at(-1) || null};
+  }
   if(date===today) {
     const nowOslo=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date());
     const strictStart=minutes(fromTime)>minutes(nowOslo);

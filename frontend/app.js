@@ -46,7 +46,7 @@ function formatSourceTime(value) {
 function dataSignature(data) {
   return JSON.stringify((data.items || []).map(x => [
     x.journey_id, x.time, x.planned_time, x.expected_time, x.actual_time,
-    x.platform, x.status, x.current_location, x.graph_fallback
+    x.platform, x.status, x.current_location, x.graph_fallback, x.event_type
   ]));
 }
 
@@ -115,9 +115,10 @@ async function updateSuggestions() {
 }
 function timeCell(x) {
   const delayed = String(x.status || '').toLowerCase().includes('forsinket');
-  if (String(x.status || '').includes('Innstilt')) return `<span class="main-time cancelled-time">${esc(x.planned_time || x.time)}</span>`;
+  const event = boardMode === 'both' ? `<small class="event-kind ${esc(x.event_type || '')}">${x.event_type==='departure'?'Avgang':x.event_type==='arrival'?'Ankomst':'Rutegraf'}</small>` : '';
+  if (String(x.status || '').includes('Innstilt')) return `<span class="main-time cancelled-time">${esc(x.planned_time || x.time)}</span>${event}`;
   const sub = delayed && x.planned_time ? `<small>Planlagt ${esc(x.planned_time)}</small>` : '';
-  return `<span class="main-time">${esc(x.time)}</span>${sub}`;
+  return `<span class="main-time">${esc(x.time)}</span>${event}${sub}`;
 }
 
 function statusCell(x) {
@@ -150,6 +151,10 @@ function trackKey(x) {
   return String(x.platform || '–');
 }
 
+function trainItemKey(x) {
+  return `${x.journey_id}::${x.event_type || 'auto'}`;
+}
+
 function filteredTrainItems() {
   return lastTrainItems.filter(x => !hiddenCategories.has(x.category) && !hiddenTracks.has(trackKey(x)));
 }
@@ -165,12 +170,13 @@ function bindTrainRows() {
 function renderTrainRows() {
   const items = filteredTrainItems();
   if (!items.length) {
-    const noTrains = boardMode === 'arrival' ? 'Ingen ankomster funnet i valgt tidsrom.' : 'Ingen avganger funnet i valgt tidsrom.';
+    const noTrains = boardMode === 'arrival' ? 'Ingen ankomster funnet i valgt tidsrom.'
+      : boardMode === 'departure' ? 'Ingen avganger funnet i valgt tidsrom.' : 'Ingen ankomster eller avganger funnet i valgt tidsrom.';
     $('rows').innerHTML = `<tr><td colspan="7" class="empty">${lastTrainItems.length ? 'Ingen tog samsvarer med filteret.' : noTrains}</td></tr>`;
     updateFilterSummary();
     return;
   }
-  $('rows').innerHTML = items.map(x => `<tr class="train-row ${rowClass(x)}" tabindex="0" data-id="${esc(x.journey_id)}">
+  $('rows').innerHTML = items.map(x => `<tr class="train-row ${rowClass(x)}" tabindex="0" data-id="${esc(trainItemKey(x))}">
     <td class="time time-cell">${timeCell(x)}</td>
     <td class="trainno train-cell">${esc(x.train_no)}${x.line && x.line !== '-' ? `<small>${esc(x.line)}</small>` : ''}</td>
     <td class="track-cell"><span class="track-value"><span class="track-label">Spor </span>${esc(x.platform || '–')}</span>${x.passing ? '<span class="passing-label">Passerende</span>' : ''}</td>
@@ -250,7 +256,7 @@ async function loadTrains(allowModeFallback=true) {
   try {
     let d = await queryTrains(currentTrainQuery());
     if (requestId !== loadRequestId) return;
-    if (allowModeFallback && !boardModeManuallySelected && !(d.items || []).length) {
+    if (allowModeFallback && boardMode !== 'both' && !boardModeManuallySelected && !(d.items || []).length) {
       const fallbackMode = boardMode === 'arrival' ? 'departure' : 'arrival';
       try {
         const fallback = await queryTrains({...currentTrainQuery(), eventType:fallbackMode});
@@ -293,12 +299,13 @@ function routeTime(stop) {
   return 'Tid ikke oppgitt';
 }
 
-async function openDetail(journeyId, force=false) {
+async function openDetail(itemKey, force=false) {
   const dialog = $('detail');
   $('detail-content').innerHTML = '<div class="detail-loading"><span class="spinner"></span> Henter togrute …</div>';
   if (!dialog.open) dialog.showModal();
   try {
-    const item = lastTrainItems.find(x => x.journey_id === journeyId) || null;
+    const item = lastTrainItems.find(x => trainItemKey(x) === itemKey) || null;
+    const journeyId = item?.journey_id || itemKey;
     const x = await trainDetail({
       journeyId,
       date: $('date').value,
@@ -333,7 +340,7 @@ async function openDetail(journeyId, force=false) {
       <h3>Rute</h3>
       <div class="route">${route || '<p class="muted">Ingen rutepunkter tilgjengelig.</p>'}</div>`;
     const refresh = $('detail-refresh');
-    if (refresh) refresh.onclick = () => openDetail(journeyId, true);
+    if (refresh) refresh.onclick = () => openDetail(itemKey, true);
   } catch (e) {
     $('detail-content').innerHTML = `<p class="error">${esc(e.message)}</p>`;
   }
@@ -548,16 +555,16 @@ $('filter-reset').addEventListener('click', resetFilters);
 $('filter-dialog').addEventListener('click', e => { if (e.target === $('filter-dialog')) $('filter-dialog').close(); });
 
 function updateBoardModeControls() {
-  const arrivals = boardMode === 'arrival';
-  $('show-arrivals').classList.toggle('active', arrivals);
-  $('show-departures').classList.toggle('active', !arrivals);
-  $('show-arrivals').setAttribute('aria-pressed', String(arrivals));
-  $('show-departures').setAttribute('aria-pressed', String(!arrivals));
-  $('time-heading').textContent = arrivals ? 'Ankomst' : 'Avgang';
+  for(const [id,mode] of [['show-arrivals','arrival'],['show-departures','departure'],['show-both','both']]) {
+    const active=boardMode===mode;
+    $(id).classList.toggle('active',active);
+    $(id).setAttribute('aria-pressed',String(active));
+  }
+  $('time-heading').textContent = boardMode === 'arrival' ? 'Ankomst' : boardMode === 'departure' ? 'Avgang' : 'Tid';
 }
 
 function setBoardMode(mode) {
-  if (mode !== 'arrival' && mode !== 'departure') return;
+  if (!['arrival','departure','both'].includes(mode)) return;
   boardMode = mode;
   boardModeManuallySelected = true;
   updateBoardModeControls();
@@ -566,6 +573,7 @@ function setBoardMode(mode) {
 
 $('show-arrivals').addEventListener('click', () => setBoardMode('arrival'));
 $('show-departures').addEventListener('click', () => setBoardMode('departure'));
+$('show-both').addEventListener('click', () => setBoardMode('both'));
 
 function refreshTrains() {
   if (autoFromNow && $('date').value === localDate(new Date())) $('from').value = localTime(new Date());

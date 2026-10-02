@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -127,6 +127,20 @@ test('uses a future start time as a strict lower boundary', () => {
     {train_no:'2',time:'23:21',actual_time:null,status:'Hentet fra rutegraf, ingen sanntidsdata'},
   ];
   assert.deepEqual(filterLiveItems(items,'23:00','23:59',false).map(item=>item.train_no),['2']);
+});
+
+test('combines arrivals and departures while keeping one graph-only event', () => {
+  const arrival=[
+    {journey_id:'regular',train_no:'1',time:'12:00'},
+    {journey_id:'graph',train_no:'2',time:'12:05',graph_only:true},
+  ];
+  const departure=[
+    {journey_id:'regular',train_no:'1',time:'12:03'},
+    {journey_id:'graph',train_no:'2',time:'12:05',graph_only:true},
+  ];
+  assert.deepEqual(combineEventItems(arrival,departure).map(item=>[item.train_no,item.event_type]),[
+    ['1','arrival'],['1','departure'],['2','graph'],
+  ]);
 });
 
 test('uses the daily plan as fallback for trains missing from live feeds', () => {

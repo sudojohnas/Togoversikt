@@ -89,8 +89,10 @@
 .summary-update-card{cursor:pointer;user-select:none;transition:background .12s ease,border-color .12s ease}.summary-update-card:hover{background:#f7f9fa}.summary-update-card:active{background:#eef2f5}.summary-update-card:focus-visible{outline:3px solid rgba(40,102,169,.18);outline-offset:2px}.summary-update-card .summary-refresh{pointer-events:none}.summary-update-card #updated{pointer-events:none}
 
 /* Arrival/departure board selector */
-.board-mode{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:7px 0}.board-mode button{height:30px;padding:0 12px;border:1px solid #cbd4dc;border-radius:6px;background:#fff;color:#52606d;font-size:11px;font-weight:800;letter-spacing:.02em}.board-mode button:hover{background:#f7f9fa}.board-mode button.active{border-color:#17202a;background:#17202a;color:#fff}.board-mode button:focus-visible{outline:3px solid rgba(40,102,169,.18);outline-offset:1px}
+.board-mode{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:7px 0}.board-mode button{height:30px;padding:0 12px;border:1px solid #cbd4dc;border-radius:6px;background:#fff;color:#52606d;font-size:11px;font-weight:800;letter-spacing:.02em}.board-mode button:hover{background:#f7f9fa}.board-mode button.active{border-color:#17202a;background:#17202a;color:#fff}.board-mode button:focus-visible{outline:3px solid rgba(40,102,169,.18);outline-offset:1px}
 @media(max-width:720px){.board-mode{gap:5px;margin:6px 0}.board-mode button{height:28px;font-size:10.5px}}
+
+.event-kind{display:inline-flex!important;width:max-content;margin-top:4px!important;padding:2px 5px;border-radius:4px;font-size:8px!important;font-weight:850!important;letter-spacing:.025em;text-transform:uppercase}.event-kind.arrival{background:#dcecf8;color:#18527d}.event-kind.departure{background:#e8e3f6;color:#513b83}.event-kind.graph{background:#e7ecef;color:#4e5c67}
 
 /* Train detail refresh */
 .detail-refresh{height:36px;flex:0 0 auto;padding:0 12px;background:#fff;color:#17202a;border:1px solid #b8c3cc;border-radius:8px;font-size:12px;font-weight:800}.detail-refresh:hover{background:#f4f7f9}.detail-refresh:active{transform:translateY(1px)}
