@@ -395,14 +395,30 @@ async function getPlan(date, locationCode, force=false) {
 }
 async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
-  if(!items.length) return [];
   const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
   const p=new URLSearchParams({date,location:locationCode,trains:trains.join(',')});
   const response=await fetchJson(`/api/daily-graphs?${p}`);
   if(!response.graphs_loaded) return items;
   const found=new Set((response.trains || []).map(String));
-  return items.filter(item=>found.has(String(item.train_no))).map(item=>({...item,
+  const possibleWorkTrains=response.possible_work_trains || [];
+  const possibleNumbers=new Set(possibleWorkTrains.map(train=>String(train.train_no)));
+  const confirmed=items.filter(item=>found.has(String(item.train_no))).map(item=>({...item,
+    category:possibleNumbers.has(String(item.train_no))?'Mulig arbeidstog':item.category,
     graph_fallback:true,source:'Bane NOR rutegraf'}));
+  const plannedNumbers=new Set(items.map(item=>String(item.train_no)));
+  const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
+  const graphOnly=possibleWorkTrains.filter(train=>!plannedNumbers.has(String(train.train_no))).flatMap(train=>{
+    const stop=(train.route || []).find(item=>item.code===locationCode);
+    if(!stop || stop.time<fromTime || stop.time>toTime) return [];
+    const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time}));
+    return [{journey_id:train.journey_id,train_no:String(train.train_no),line:`Graf ${train.line_number}`,
+      category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',operator_code:'BN?',origin:names.get(train.origin_code) || train.origin_code,
+      destination:names.get(train.destination_code) || train.destination_code,direction_ref:train.destination_code || '',time:stop.time,
+      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Kun rutegraf',
+      current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
+      graph_fallback:true,graph_only:true,graph_route:route}];
+  });
+  return [...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
 }
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false, eventType='arrival') {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
@@ -558,6 +574,13 @@ export function detailFromJourney(journey, locationCode, sourceTime) {
     current_location:current?.name || 'Ikke registrert ennå',route,source:journey.source,source_time:sourceTime};
 }
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
+  if(item?.graph_only) {
+    return {journey_id:item.journey_id,train_no:item.train_no,category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',
+      origin:item.origin,destination:item.destination,status:'Kun rutegraf',current_location:'Ikke tilgjengelig',source_time:null,
+      route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
+        planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
+        actual_departure:null,platform:'',passing:false,status:'Kun rutegraf',state:'planned',selected:stop.code===locationCode}))};
+  }
   let dataset;
   if(date===today) {
     try {

@@ -1,4 +1,4 @@
-import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
+import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, extractPossibleWorkTrains, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
 import { filterProductionTimetableXml } from './pt-filter.js';
 
@@ -90,9 +90,9 @@ async function dailyGraphLine(date, line, ctx, store) {
     if(cached) await storeGraphResult(cache,cacheKey,null,storeKey,cached,ctx);
   }
   const checkedAt=Date.parse(cached?.checked_at || '');
-  if(cached && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
+  if(cached && Array.isArray(cached.possible_work_trains) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
 
-  if(cached) {
+  if(cached && Array.isArray(cached.possible_work_trains)) {
     try {
       const head=await fetch(graphUrl(date,line),{
         method:'HEAD',cf:{cacheEverything:true,cacheTtl:120},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(10000)
@@ -116,13 +116,16 @@ async function dailyGraphLine(date, line, ctx, store) {
   const pdf=await response.arrayBuffer();
   const contentHash=await graphContentHash(pdf);
   const remoteVersion=graphResponseVersion(response.headers);
+  const possibleWorkTrains=await extractPossibleWorkTrains(pdf,date,line,Object.keys(STATION_GRAPH_LINES));
   if(cached?.content_hash===contentHash) {
-    const unchanged={...cached,remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
+    const unchanged={...cached,possible_work_trains:possibleWorkTrains,
+      remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
     await storeGraphResult(cache,cacheKey,null,storeKey,unchanged,ctx);
     return unchanged;
   }
   const now=new Date().toISOString();
-  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(pdf))],source_time:now,checked_at:now,
+  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(pdf))],possible_work_trains:possibleWorkTrains,
+    source_time:now,checked_at:now,
     remote_version:remoteVersion,content_hash:contentHash};
   await storeGraphResult(cache,cacheKey,store,storeKey,data,ctx,true);
   return data;
@@ -135,7 +138,8 @@ async function dailyGraphNumbers(date, locationCode, ctx, store) {
     try { return await dailyGraphLine(date,line,ctx,store); } catch { return null; }
   }));
   const loaded=results.filter(Boolean);
-  return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],graphs_loaded:loaded.length,
+  return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],
+    possible_work_trains:loaded.flatMap(result=>result.possible_work_trains || []),graphs_loaded:loaded.length,
     graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null};
 }
 
@@ -145,8 +149,16 @@ async function dailyGraphMatches(request, ctx, store) {
   const candidates=(url.searchParams.get('trains') || '').split(',').map(x=>x.trim()).filter(x=>/^\d{1,6}$/.test(x)).slice(0,500);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
   const data=await dailyGraphNumbers(date,locationCode,ctx,store);
+  const possibleAtLocation=data.possible_work_trains.filter(train=>train.route.some(stop=>stop.code===locationCode));
+  const possibleWorkTrains=[...possibleAtLocation.reduce((deduped,train)=>{
+    const stop=train.route.find(item=>item.code===locationCode);
+    const key=`${train.train_no}:${stop?.time || ''}`;
+    const previous=deduped.get(key);
+    if(!previous || train.route.length>previous.route.length) deduped.set(key,train);
+    return deduped;
+  },new Map()).values()];
   return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
-    graphs_expected:data.graphs_expected,source_time:data.source_time},{
+    graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains},{
     headers:{'Cache-Control':'public, max-age=300'}
   });
 }

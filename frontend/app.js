@@ -188,7 +188,7 @@ function updateFilterSummary() {
 }
 
 function renderFilterOptions() {
-  const alwaysCategories = ['Persontog', 'Godstog', 'Arbeidstog'];
+  const alwaysCategories = ['Persontog', 'Godstog', 'Arbeidstog', 'Mulig arbeidstog'];
   const cats = [...new Set([...alwaysCategories, ...lastTrainItems.map(x => x.category || 'Ukjent')])]
     .sort((a,b) => categoryLabel(a).localeCompare(categoryLabel(b), 'no'));
   const tracks = [...new Set(lastTrainItems.map(trackKey))].sort((a,b) => a.localeCompare(b, 'no', {numeric:true}));
