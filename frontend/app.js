@@ -483,6 +483,9 @@ menuToggle.addEventListener('click', () => setMenuOpen(siteMenuPanel.hidden));
 $('open-train-map').addEventListener('click', showTrainMap);
 $('close-train-map').addEventListener('click', hideTrainMap);
 trainMapFrame.addEventListener('load', () => $('train-map-loading').classList.add('loaded'));
+siteMenuPanel.addEventListener('click', e => {
+  if (e.target.closest('a')) setMenuOpen(false);
+});
 document.addEventListener('click', e => {
   if (!e.target.closest('.site-menu')) setMenuOpen(false);
 });
