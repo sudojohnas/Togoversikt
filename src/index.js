@@ -7,6 +7,7 @@ const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
 const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing';
 const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
+const MAX_WORK_GRAPH_BYTES = 350 * 1024;
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -116,7 +117,11 @@ async function dailyGraphLine(date, line, ctx, store) {
   const pdf=await response.arrayBuffer();
   const contentHash=await graphContentHash(pdf);
   const remoteVersion=graphResponseVersion(response.headers);
-  const possibleWorkTrains=await extractPossibleWorkTrains(pdf,date,line,Object.keys(STATION_GRAPH_LINES));
+  // A few unusually large graph sheets exceed the Worker's memory budget when
+  // PDF drawing operators are expanded. Keep ordinary graph confirmation for
+  // those sheets, but never let them take down results from the other lines.
+  const possibleWorkTrains=pdf.byteLength<=MAX_WORK_GRAPH_BYTES
+    ? await extractPossibleWorkTrains(pdf,date,line,Object.keys(STATION_GRAPH_LINES)) : [];
   if(cached?.content_hash===contentHash) {
     const unchanged={...cached,possible_work_trains:possibleWorkTrains,
       remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
