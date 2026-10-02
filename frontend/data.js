@@ -13,11 +13,19 @@ const parser = new XMLParser({
 const arr = value => value == null ? [] : Array.isArray(value) ? value : [value];
 const LIVE_LOOKBACK_MINUTES = 360;
 const UNCONFIRMED_OVERDUE_MINUTES = 30;
+const DAILY_GRAPH_URL = 'https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/';
 let locationsPromise = null;
 let liveEtCache = null;
 let togkartCache = null;
 const planCache = new Map();
 const filteredEtCache = new Map();
+
+function dailyGraphUrl(date,line) {
+  const url=new URL(DAILY_GRAPH_URL);
+  url.searchParams.set('dateInput',date);
+  url.searchParams.set('selectLine',String(line));
+  return url.toString();
+}
 
 function searchKey(value='') {
   return String(value).toLocaleLowerCase('no').replaceAll('ø','o').replaceAll('æ','ae').replaceAll('å','a')
@@ -402,10 +410,13 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   if(!response.graphs_loaded) return items;
   const found=new Set((response.trains || []).map(String));
   const possibleWorkTrains=response.possible_work_trains || [];
-  const possibleNumbers=new Set(possibleWorkTrains.map(train=>String(train.train_no)));
-  const confirmed=items.filter(item=>found.has(String(item.train_no))).map(item=>({...item,
-    category:possibleNumbers.has(String(item.train_no))?'Mulig arbeidstog':item.category,
-    graph_fallback:true,source:'Bane NOR rutegraf'}));
+  const possibleByNumber=new Map(possibleWorkTrains.map(train=>[String(train.train_no),train]));
+  const confirmed=items.filter(item=>found.has(String(item.train_no))).map(item=>{
+    const possible=possibleByNumber.get(String(item.train_no));
+    return {...item,category:possible?'Mulig arbeidstog':item.category,
+      graph_fallback:true,source:'Bane NOR rutegraf',
+      graph_url:possible?dailyGraphUrl(date,possible.line_number):null};
+  });
   const plannedNumbers=new Set(items.map(item=>String(item.train_no)));
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
   const graphOnly=possibleWorkTrains.filter(train=>!plannedNumbers.has(String(train.train_no))).flatMap(train=>{
@@ -417,7 +428,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
       destination:names.get(train.destination_code) || train.destination_code,direction_ref:train.destination_code || '',time:stop.time,
       planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',
       current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
-      graph_fallback:true,graph_only:true,graph_route:route}];
+      graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number)}];
   });
   return [...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
 }
@@ -583,6 +594,7 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
   if(item?.graph_only) {
     return {journey_id:item.journey_id,train_no:item.train_no,category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',
       origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
+      source_url:item.graph_url || null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
         planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
         actual_departure:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};

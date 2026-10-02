@@ -317,6 +317,10 @@ async function openDetail(journeyId, force=false) {
         <span>${routeTime(stop)}${stop.platform ? ` · spor ${esc(stop.platform)}` : ''}${stop.status === 'Innstilt' ? ' · innstilt' : ''}</span></div>
       </div>`;
     }).join('');
+    const sourceUrl = x.source_url || item?.graph_url;
+    const sourceLink = sourceUrl
+      ? `<a class="detail-source-link" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">Åpne rutegraf hos Bane NOR <span aria-hidden="true">↗</span></a>`
+      : '';
     $('detail-content').innerHTML = `
       <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div><button id="detail-refresh" class="detail-refresh" type="button">Oppdater</button></div>
       <div class="detail-grid">
@@ -325,6 +329,7 @@ async function openDetail(journeyId, force=false) {
         ${x.passing ? '<div><span>Stopp ved valgt punkt</span><strong>Nei – passerer uten stopp</strong></div>' : ''}
         <div><span>Siste registrerte punkt</span><strong>${esc(x.current_location)}</strong></div>
       </div>
+      ${sourceLink}
       <h3>Rute</h3>
       <div class="route">${route || '<p class="muted">Ingen rutepunkter tilgjengelig.</p>'}</div>`;
     const refresh = $('detail-refresh');
