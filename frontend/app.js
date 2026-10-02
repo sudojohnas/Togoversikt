@@ -17,6 +17,7 @@ let lastTrainItems = [];
 let activeLocationCode = null;
 let loadRequestId = 0;
 let boardMode = 'arrival';
+let boardModeManuallySelected = false;
 const hiddenCategories = new Set();
 const hiddenTracks = new Set();
 
@@ -99,6 +100,7 @@ function chooseSuggestion(index) {
   if (!x) return;
   $('location').value = x.name;
   $('location').dataset.code = x.code;
+  boardModeManuallySelected = false;
   resetFromToNow();
   hideSuggestions();
   loadTrains();
@@ -162,7 +164,8 @@ function bindTrainRows() {
 function renderTrainRows() {
   const items = filteredTrainItems();
   if (!items.length) {
-    $('rows').innerHTML = `<tr><td colspan="7" class="empty">${lastTrainItems.length ? 'Ingen tog samsvarer med filteret.' : 'Ingen tog funnet i valgt tidsrom.'}</td></tr>`;
+    const noTrains = boardMode === 'arrival' ? 'Ingen ankomster funnet i valgt tidsrom.' : 'Ingen avganger funnet i valgt tidsrom.';
+    $('rows').innerHTML = `<tr><td colspan="7" class="empty">${lastTrainItems.length ? 'Ingen tog samsvarer med filteret.' : noTrains}</td></tr>`;
     updateFilterSummary();
     return;
   }
@@ -246,10 +249,11 @@ async function loadTrains(allowModeFallback=true) {
   try {
     let d = await queryTrains(currentTrainQuery());
     if (requestId !== loadRequestId) return;
-    if (allowModeFallback && !(d.items || []).length) {
+    if (allowModeFallback && !boardModeManuallySelected && !(d.items || []).length) {
       const fallbackMode = boardMode === 'arrival' ? 'departure' : 'arrival';
       try {
         const fallback = await queryTrains({...currentTrainQuery(), eventType:fallbackMode});
+        if (requestId !== loadRequestId) return;
         if ((fallback.items || []).length) {
           boardMode = fallbackMode;
           updateBoardModeControls();
@@ -417,6 +421,7 @@ async function useMyLocation() {
       const x = await nearestLocation(pos.coords.latitude, pos.coords.longitude);
       $('location').value = x.name;
       $('location').dataset.code = x.code;
+      boardModeManuallySelected = false;
       resetFromToNow();
       hideSuggestions();
       btn.textContent = 'Finner tog';
@@ -548,6 +553,7 @@ function updateBoardModeControls() {
 function setBoardMode(mode) {
   if (mode !== 'arrival' && mode !== 'departure') return;
   boardMode = mode;
+  boardModeManuallySelected = true;
   updateBoardModeControls();
   if ($('location').dataset.code) loadTrains(false);
 }
