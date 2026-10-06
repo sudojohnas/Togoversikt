@@ -421,9 +421,11 @@ async function getPlan(date, locationCode, force=false) {
 }
 export function mergeDailyGraphResponses(responses=[], expected=responses.length) {
   const loaded=responses.filter(Boolean);
+  const possible=[...new Map(loaded.flatMap(response=>response.possible_work_trains || [])
+    .map(train=>[train.journey_id || `${train.line_number}:${train.train_no}:${train.origin_code}:${train.destination_code}`,train])).values()];
   return {
     trains:[...new Set(loaded.flatMap(response=>response.trains || []).map(String))],
-    possible_work_trains:loaded.flatMap(response=>response.possible_work_trains || []),
+    possible_work_trains:possible,
     graphs_loaded:loaded.reduce((sum,response)=>sum+(Number(response.graphs_loaded) || 0),0),
     graphs_expected:expected,
     source_time:loaded.map(response=>response.source_time).filter(Boolean).sort().at(-1) || null,
@@ -437,7 +439,11 @@ async function getDailyGraphs(date, locationCode, trains) {
   const requests=lines.flatMap(line=>Array.from({length:parts},(_,index)=>({line,part:index+1})));
   const responses=await Promise.all(requests.map(async ({line,part})=>{
     const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line),part:String(part),parts:String(parts)});
-    try { return await fetchJson(`/api/daily-graphs?${p}`); } catch { return null; }
+    for(let attempt=0;attempt<3;attempt++) {
+      try { return await fetchJson(`/api/daily-graphs?${p}`); }
+      catch { if(attempt<2) await new Promise(resolve=>setTimeout(resolve,150*(attempt+1))); }
+    }
+    return null;
   }));
   return mergeDailyGraphResponses(responses,requests.length);
 }

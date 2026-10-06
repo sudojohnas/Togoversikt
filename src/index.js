@@ -102,6 +102,12 @@ async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
     cached=await store.get(storeKey,'json');
     if(cached) await storeGraphResult(cache,cacheKey,null,storeKey,cached,ctx);
   }
+  if(!cached && parts>1) {
+    const completeCacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${date}/${line}`);
+    const completeResponse=cache ? await cache.match(completeCacheKey) : null;
+    cached=completeResponse ? await completeResponse.json() : null;
+    if(!cached && store) cached=await store.get(`daily-graph:${date}:${line}`,'json');
+  }
   const checkedAt=Date.parse(cached?.checked_at || '');
   if(cached && Array.isArray(cached.possible_work_trains) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
 
