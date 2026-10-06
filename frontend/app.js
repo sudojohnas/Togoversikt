@@ -1,4 +1,5 @@
 import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
+import { activeOperationalNotices, operationalNoticeGraphUrl } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -20,6 +21,35 @@ let boardMode = 'arrival';
 let boardModeManuallySelected = false;
 const hiddenCategories = new Set();
 const hiddenTracks = new Set();
+
+const noticeDateFmt = new Intl.DateTimeFormat('nb-NO', {
+  timeZone:'Europe/Oslo', weekday:'short', day:'numeric', month:'short',
+});
+
+function noticeTime(value) {
+  const date = new Date(value);
+  return `${noticeDateFmt.format(date)} kl. ${localTime(date)}`;
+}
+
+function renderOperationalNotices() {
+  const container = $('operational-notices');
+  const notices = activeOperationalNotices();
+  container.hidden = !notices.length;
+  container.innerHTML = notices.map(notice => `
+    <article class="operational-notice">
+      <div class="operational-notice-mark" aria-hidden="true">!</div>
+      <div class="operational-notice-copy">
+        <div class="kicker">OBS · Tog i sporet</div>
+        <h2>Tog ${esc(notice.trainNo)} · ${esc(notice.route)}</h2>
+        <p class="operational-notice-time">${esc(noticeTime(notice.startsAt))} – ${esc(noticeTime(notice.endsAt))}</p>
+        <p>${esc(notice.message)} <strong>Sjekk rutegrafen.</strong></p>
+      </div>
+      <a href="${esc(operationalNoticeGraphUrl(notice))}" target="_blank" rel="noopener noreferrer">Åpne rutegraf ${esc(notice.graphLine)} <span aria-hidden="true">↗</span></a>
+    </article>`).join('');
+}
+
+renderOperationalNotices();
+setInterval(renderOperationalNotices, 60000);
 
 function rowClass(x) {
   const s = String(x.status || '').toLowerCase();
