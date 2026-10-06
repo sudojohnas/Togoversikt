@@ -93,11 +93,11 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       } else if(fn===OPS.endText && text) {
         const trainNo=text.value.trim(), [a,b,c,d,x,y]=text.matrix;
         const rotated=Math.abs(b)>0.05 || Math.abs(c)>0.05;
-        if(text.blue && rotated && /^\d{4,6}$/.test(trainNo)) {
+        if(rotated && /^\d{4,6}$/.test(trainNo)) {
           const station=stations.reduce((best,item)=>Math.abs(item.y-y)<Math.abs(best.y-y)?item:best,stations[0]);
           const hour=interpolateHour(x,hours), time=clockFromHour(hour);
           if(time && Math.abs(station.y-y)<=48) occurrences.push({train_no:trainNo,page:pageIndex+1,x,y,
-            station_code:station.code,time,minute:Math.round(hour*60)});
+            station_code:station.code,time,minute:Math.round(hour*60),work_hint:text.blue});
         }
         text=null;
       }
@@ -112,7 +112,7 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
   const trains=[];
   for(const [trainNo,raw] of grouped) {
     const unique=[...new Map(raw.map(item=>[`${item.page}:${Math.round(item.x)}:${Math.round(item.y)}`,item])).values()];
-    if(unique.length<2) continue;
+    if(!unique.length) continue;
     const segments=[];
     for(const occurrence of unique.sort((a,b)=>a.minute-b.minute)) {
       const current=segments.at(-1);
@@ -125,9 +125,9 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       const route=[...new Map(segment.map(item=>[`${item.station_code}:${item.time}`,{
         code:item.station_code,time:item.time,minute:item.minute,
       }])).values()];
-      if(route.length<2 || new Set(route.map(item=>item.code)).size<2) continue;
-      trains.push({journey_id:`graph:${date}:${line}:${trainNo}:${segmentIndex+1}`,train_no:trainNo,line_number:line,
-        origin_code:route[0].code,destination_code:route.at(-1).code,route});
+      if(!route.length) continue;
+      trains.push({journey_id:`graph:${date}:${line}:${trainNo}:${route[0].time}:${segmentIndex+1}`,train_no:trainNo,line_number:line,
+        origin_code:route[0].code,destination_code:route.at(-1).code,work_hint:segment.some(item=>item.work_hint),route});
     }
   }
   return trains;

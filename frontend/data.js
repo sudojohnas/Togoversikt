@@ -463,7 +463,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   const possibleByNumber=new Map(possibleWorkTrains.map(train=>[String(train.train_no),train]));
   const confirmed=items.filter(item=>found.has(String(item.train_no))).map(item=>{
     const possible=possibleByNumber.get(String(item.train_no));
-    return {...item,category:possible?'Mulig arbeidstog':item.category,
+    return {...item,category:possible?.work_hint?'Mulig arbeidstog':item.category,
       graph_fallback:true,source:'Bane NOR rutegraf',
       graph_url:possible?dailyGraphUrl(date,possible.line_number):null};
   });
@@ -473,9 +473,10 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
     const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time}));
+    const singlePoint=route.length===1;
     return [{journey_id:train.journey_id,train_no:String(train.train_no),line:`Graf ${train.line_number}`,
-      category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',operator_code:'BN?',origin:names.get(train.origin_code) || train.origin_code,
-      destination:names.get(train.destination_code) || train.destination_code,direction_ref:train.destination_code || '',time:stop.time,
+      category:train.work_hint?'Mulig arbeidstog':'Ukjent',operator:train.work_hint?'Bane NOR-bestilt':'Ikke oppgitt',operator_code:train.work_hint?'BN?':'',origin:singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code,
+      destination:singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code,direction_ref:singlePoint?'':train.destination_code || '',time:stop.time,
       planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',
       current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
       graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number)}];
