@@ -1,4 +1,4 @@
-import { DAILY_GRAPH_COUNT, extractDailyGraphNumbers, extractPossibleWorkTrains, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
+import { DAILY_GRAPH_COUNT, extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
 import { filterProductionTimetableXml } from './pt-filter.js';
 
@@ -131,8 +131,7 @@ async function dailyGraphLine(date, line, ctx, store) {
   // A few unusually large graph sheets exceed the Worker's memory budget when
   // PDF drawing operators are expanded. Keep ordinary graph confirmation for
   // those sheets, but never let them take down results from the other lines.
-  const possibleWorkTrains=pdf.byteLength<=MAX_WORK_GRAPH_BYTES
-    ? await extractPossibleWorkTrains(pdf,date,line,Object.keys(STATION_GRAPH_LINES)) : [];
+  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES);
   if(cached?.content_hash===contentHash) {
     const unchanged={...cached,possible_work_trains:possibleWorkTrains,
       remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
@@ -140,7 +139,7 @@ async function dailyGraphLine(date, line, ctx, store) {
     return unchanged;
   }
   const now=new Date().toISOString();
-  const data={date,line,numbers:[...new Set(await extractDailyGraphNumbers(pdf))],possible_work_trains:possibleWorkTrains,
+  const data={date,line,numbers:[...new Set(graphData.numbers)],possible_work_trains:graphData.possible_work_trains,
     source_time:now,checked_at:now,
     remote_version:remoteVersion,content_hash:contentHash};
   await storeGraphResult(cache,cacheKey,store,storeKey,data,ctx,true);

@@ -22,9 +22,13 @@ export function graphResponseVersion(headers) {
   return length ? `length:${length}` : '';
 }
 
+function graphNumbersFromItems(items) {
+  return items.flat().map(item=>String(item.str || '').trim()).filter(value=>/^\d{1,6}$/.test(value));
+}
+
 export async function extractDailyGraphNumbers(data) {
   const {items}=await extractTextItems(new Uint8Array(data));
-  return items.flat().map(item=>String(item.str || '').trim()).filter(value=>/^\d{1,6}$/.test(value));
+  return graphNumbersFromItems(items);
 }
 
 function multiplyTransform(a,b) {
@@ -51,9 +55,8 @@ function clockFromHour(value) {
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 
-export async function extractPossibleWorkTrains(data, date, line, knownStationCodes=[]) {
-  const bytes=new Uint8Array(data), pdf=await getDocumentProxy(bytes);
-  const {items}=await extractTextItems(pdf), {OPS}=await getResolvedPDFJS();
+async function possibleWorkTrainsFromDocument(pdf, items, date, line, knownStationCodes=[]) {
+  const {OPS}=await getResolvedPDFJS();
   const known=new Set(knownStationCodes), occurrences=[];
 
   for(let pageIndex=0;pageIndex<pdf.numPages;pageIndex++) {
@@ -121,6 +124,22 @@ export async function extractPossibleWorkTrains(data, date, line, knownStationCo
     }
   }
   return trains;
+}
+
+export async function extractPossibleWorkTrains(data, date, line, knownStationCodes=[]) {
+  const pdf=await getDocumentProxy(new Uint8Array(data));
+  const {items}=await extractTextItems(pdf);
+  return possibleWorkTrainsFromDocument(pdf,items,date,line,knownStationCodes);
+}
+
+export async function extractDailyGraphData(data, date, line, knownStationCodes=[], includePossibleWorkTrains=true) {
+  const pdf=await getDocumentProxy(new Uint8Array(data));
+  const {items}=await extractTextItems(pdf);
+  return {
+    numbers:graphNumbersFromItems(items),
+    possible_work_trains:includePossibleWorkTrains
+      ? await possibleWorkTrainsFromDocument(pdf,items,date,line,knownStationCodes) : [],
+  };
 }
 
 export function matchCandidateTrainNumbers(candidates, graphNumbers) {

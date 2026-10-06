@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from '../src/daily-graphs.js';
+import { extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from '../src/daily-graphs.js';
 
 test('builds the public Bane NOR daily graph URL', () => {
   const url=new URL(graphUrl('2026-09-28',11));
@@ -20,4 +20,8 @@ test('uses the Bane NOR PDF filename and size as a graph version', () => {
 test('prefers a strong ETag when the graph source provides one', () => {
   const headers=new Headers({'ETag':'"graph-173"','Content-Disposition':'inline; filename=DG_173.pdf'});
   assert.equal(graphResponseVersion(headers),'etag:"graph-173"');
+});
+
+test('exports a combined graph extractor for one-pass PDF processing', () => {
+  assert.equal(typeof extractDailyGraphData,'function');
 });
