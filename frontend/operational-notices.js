@@ -7,6 +7,7 @@ export const OPERATIONAL_NOTICES = [
     id: 'train-54702-halden-berg-2026-10-06',
     trainNo: '54702',
     route: 'Halden–Berg',
+    locationCodes: ['HLD', 'BG'],
     startsAt: '2026-10-06T22:54:00+02:00',
     endsAt: '2026-10-07T06:53:00+02:00',
     graphDate: '2026-10-06',
@@ -22,6 +23,13 @@ export function activeOperationalNotices(now = new Date(), notices = OPERATIONAL
     const end = Date.parse(notice.endsAt);
     return Number.isFinite(start) && Number.isFinite(end) && timestamp >= start && timestamp < end;
   });
+}
+
+export function operationalNoticesForLocation(locationCode, now = new Date(), notices = OPERATIONAL_NOTICES) {
+  const code = String(locationCode || '').toUpperCase();
+  return activeOperationalNotices(now, notices).filter(notice =>
+    !notice.locationCodes?.length || notice.locationCodes.includes(code)
+  );
 }
 
 export function operationalNoticeGraphUrl(notice) {

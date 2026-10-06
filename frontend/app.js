@@ -1,5 +1,5 @@
 import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
-import { activeOperationalNotices, operationalNoticeGraphUrl } from './operational-notices.js';
+import { operationalNoticesForLocation, operationalNoticeGraphUrl } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -33,7 +33,7 @@ function noticeTime(value) {
 
 function renderOperationalNotices() {
   const container = $('operational-notices');
-  const notices = activeOperationalNotices();
+  const notices = operationalNoticesForLocation($('location').dataset.code);
   container.hidden = !notices.length;
   container.innerHTML = notices.map(notice => `
     <article class="operational-notice">
@@ -130,6 +130,7 @@ function chooseSuggestion(index) {
   if (!x) return;
   $('location').value = x.name;
   $('location').dataset.code = x.code;
+  renderOperationalNotices();
   boardModeManuallySelected = false;
   resetFromToNow();
   hideSuggestions();
@@ -405,6 +406,7 @@ async function openDetail(itemKey, force=false) {
 }
 $('location').addEventListener('input', () => {
   $('location').dataset.code = '';
+  renderOperationalNotices();
   clearTimeout(searchTimer);
   searchTimer = setTimeout(updateSuggestions, 120);
 });
@@ -492,6 +494,7 @@ async function useMyLocation() {
       const x = await nearestLocation(pos.coords.latitude, pos.coords.longitude);
       $('location').value = x.name;
       $('location').dataset.code = x.code;
+      renderOperationalNotices();
       boardModeManuallySelected = false;
       resetFromToNow();
       hideSuggestions();
