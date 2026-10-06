@@ -432,10 +432,58 @@ export function mergeDailyGraphResponses(responses=[], expected=responses.length
   return {
     trains:[...new Set(loaded.flatMap(response=>response.trains || []).map(String))],
     possible_work_trains:possible,
+    operational_markers:[...new Map(loaded.flatMap(response=>response.operational_markers || [])
+      .map(marker=>[[marker.line_number,marker.train_no,marker.station_code,marker.time].join(':'),marker])).values()],
+    operational_sections:[...new Map(loaded.flatMap(response=>response.operational_sections || [])
+      .map(section=>[[section.line_number,section.train_no,(section.section_codes || []).join('-'),section.time].join(':'),section])).values()],
     graphs_loaded:loaded.reduce((sum,response)=>sum+(Number(response.graphs_loaded) || 0),0),
     graphs_expected:expected,
     source_time:loaded.map(response=>response.source_time).filter(Boolean).sort().at(-1) || null,
   };
+}
+
+function cyclicDistance(start,end) { return (end-start+1440)%1440; }
+
+export function buildGraphOperationalNotices(graphData, date, locationCode, locationItems=[]) {
+  const nameByCode=new Map(locationItems.map(location=>[location.code,location.name]));
+  const relevant=(graphData.operational_sections || []).filter(section=>(section.section_codes || []).includes(locationCode));
+  const groups=new Map();
+  for(const section of relevant) {
+    const codes=section.section_codes || [];
+    const key=[section.line_number,section.train_no,codes.join('-')].join(':');
+    if(!groups.has(key)) groups.set(key,{...section,anchors:[]});
+    groups.get(key).anchors.push(Number(section.minute));
+  }
+  const notices=[];
+  for(const group of groups.values()) {
+    const markers=(graphData.operational_markers || []).filter(marker=>
+      String(marker.train_no)===String(group.train_no) && Number(marker.line_number)===Number(group.line_number)
+    );
+    let best=null;
+    for(const start of markers) for(const end of markers) {
+      if(start===end) continue;
+      const duration=cyclicDistance(Number(start.minute),Number(end.minute));
+      if(duration<=0 || duration>720) continue;
+      const covered=group.anchors.filter(anchor=>cyclicDistance(Number(start.minute),anchor)<=duration).length;
+      if(!covered) continue;
+      if(!best || covered>best.covered || (covered===best.covered && duration<best.duration)) best={start,end,duration,covered};
+    }
+    if(!best) continue;
+    const crossesMidnight=Number(best.end.minute)<=Number(best.start.minute);
+    const starts=[crossesMidnight?addDays(date,-1):date, date];
+    for(const startDate of [...new Set(starts)]) {
+      const endDate=crossesMidnight?addDays(startDate,1):startDate;
+      const route=(group.section_codes || []).map(code=>nameByCode.get(code) || code).join('–');
+      notices.push({
+        id:`graph:${startDate}:${group.line_number}:${group.train_no}:${best.start.time}`,
+        trainNo:String(group.train_no),route,locationCodes:group.section_codes || [],
+        startsAt:zonedIso(startDate,best.start.time),endsAt:zonedIso(endDate,best.end.time),
+        graphDate:date,graphLine:Number(group.line_number),
+        message:`Toget er ført mellom ${route.replace('–',' og ')} i rutegrafen i dette tidsrommet.`,
+      });
+    }
+  }
+  return notices;
 }
 async function getDailyGraphs(date, locationCode, trains) {
   const lineParams=new URLSearchParams({location:locationCode});
@@ -457,7 +505,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
   const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
   const response=await getDailyGraphs(date,locationCode,trains);
-  if(!response.graphs_loaded) return items;
+  if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
   const found=new Set((response.trains || []).map(String));
   const possibleWorkTrains=response.possible_work_trains || [];
   const possibleByNumber=new Map(possibleWorkTrains.map(train=>[String(train.train_no),train]));
@@ -481,13 +529,14 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
       current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
       graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number)}];
   });
-  return [...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
+  return {items:[...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
+    operational_notices:buildGraphOperationalNotices(response,date,locationCode,locationItems),source_time:plan.source_time};
 }
 async function getGraphItems(locationCode,date,fromTime,toTime,eventType) {
   let plan={journeys:[],source_time:null};
   try { plan=await getPlan(date,locationCode); } catch {}
   try { return await graphFallbackItems(plan,locationCode,date,fromTime,toTime,eventType); }
-  catch { return queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType); }
+  catch { return {items:queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType),operational_notices:[],source_time:plan.source_time}; }
 }
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false, eventType='arrival') {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
@@ -591,7 +640,8 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
   if(eventType==='both') {
     const arrival=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'arrival'});
     const departure=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'departure'});
-    return {...arrival,items:combineEventItems(arrival.items,departure.items),
+    const notices=[...new Map([...(arrival.operational_notices || []),...(departure.operational_notices || [])].map(notice=>[notice.id,notice])).values()];
+    return {...arrival,items:combineEventItems(arrival.items,departure.items),operational_notices:notices,
       source_time:[arrival.source_time,departure.source_time].filter(Boolean).sort().at(-1) || null};
   }
   if(date===today) {
@@ -599,7 +649,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const strictStart=minutes(fromTime)>minutes(nowOslo);
     const historical=minutes(toTime)<minutes(nowOslo) || minutes(fromTime)<minutes(nowOslo)-30;
     if(historical) {
-      const [et,graphItems,liveResult]=await Promise.all([
+      const [et,graphResult,liveResult]=await Promise.all([
         (async()=>{ try { return await getLiveEt(); } catch { return null; } })(),
         getGraphItems(locationCode,date,fromTime,toTime,eventType),
         (async()=>{ try {
@@ -609,17 +659,17 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       ]);
       const etItems=et ? queryDataset(et,locationCode,date,fromTime,toTime,false,eventType) : [];
       if(liveResult) {
-        const items=mergeLiveItems(graphItems,etItems,liveResult.items)
+        const items=mergeLiveItems(graphResult.items,etItems,liveResult.items)
           .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
-        return {items,source_time:liveResult.live.source_time || et?.source_time || null,mode:'live',location,location_code:locationCode,date};
+        return {items,operational_notices:graphResult.operational_notices,source_time:liveResult.live.source_time || et?.source_time || null,mode:'live',location,location_code:locationCode,date};
       }
-      return {items:mergeLiveItems(graphItems,etItems),source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
+      return {items:mergeLiveItems(graphResult.items,etItems),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
     const span=Math.max(1,minutes(toTime)-smStartMinutes);
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,smStart),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
-    const [plannedItems,smResult,liveResult]=await Promise.all([
+    const [graphResult,smResult,liveResult]=await Promise.all([
       getGraphItems(locationCode,date,fromTime,toTime,eventType),
       (async()=>{ try {
         const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,!strictStart,eventType);
@@ -633,16 +683,24 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       } catch { return {items:[],time:null}; } })(),
     ]);
     const smItems=smResult.items, smTime=smResult.time, liveItems=liveResult.items, liveTime=liveResult.time;
-    if(plannedItems.length || smItems.length || liveItems.length) {
-      const items=filterLiveItems(mergeLiveItems(plannedItems,smItems,liveItems),fromTime,toTime,!strictStart)
+    if(graphResult.items.length || smItems.length || liveItems.length) {
+      const items=filterLiveItems(mergeLiveItems(graphResult.items,smItems,liveItems),fromTime,toTime,!strictStart)
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
-      return {items,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
+      return {items,operational_notices:graphResult.operational_notices,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt();
     const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),fromTime,toTime,!strictStart);
-    return {items,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+    return {items,operational_notices:graphResult.operational_notices,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
-  const pt=await getPlan(date,locationCode); return {items:queryDataset(pt,locationCode,date,fromTime,toTime,false,eventType),source_time:pt.source_time,mode:'planned',location,location_code:locationCode,date};
+  const graphResult=await getGraphItems(locationCode,date,fromTime,toTime,eventType);
+  if(date===addDays(today,1)) {
+    let et=null;
+    try { et=await getLiveEt(); } catch {}
+    const liveItems=et?queryDataset(et,locationCode,date,fromTime,toTime,false,eventType):[];
+    return {items:mergeLiveItems(graphResult.items,liveItems).sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
+      operational_notices:graphResult.operational_notices,source_time:et?.source_time || graphResult.source_time || null,mode:et?'live':'planned',location,location_code:locationCode,date};
+  }
+  return {items:graphResult.items,operational_notices:graphResult.operational_notices,source_time:graphResult.source_time,mode:'planned',location,location_code:locationCode,date};
 }
 export function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);

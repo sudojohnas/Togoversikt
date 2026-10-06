@@ -7,6 +7,11 @@ const osloDateFmt = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year
 const osloTimeFmt = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const localDate = d => osloDateFmt.format(d);
 const localTime = d => osloTimeFmt.format(d);
+const nextDate = value => {
+  const date = new Date(`${value}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate()+1);
+  return date.toISOString().slice(0,10);
+};
 
 let searchTimer = null;
 let suggestions = [];
@@ -21,6 +26,7 @@ let boardMode = 'arrival';
 let boardModeManuallySelected = false;
 const hiddenCategories = new Set();
 const hiddenTracks = new Set();
+let lastOperationalNotices = [];
 
 const noticeDateFmt = new Intl.DateTimeFormat('nb-NO', {
   timeZone:'Europe/Oslo', weekday:'short', day:'numeric', month:'short',
@@ -33,7 +39,7 @@ function noticeTime(value) {
 
 function renderOperationalNotices() {
   const container = $('operational-notices');
-  const notices = operationalNoticesForLocation($('location').dataset.code);
+  const notices = operationalNoticesForLocation($('location').dataset.code,new Date(),lastOperationalNotices);
   container.hidden = !notices.length;
   container.innerHTML = notices.map(notice => `
     <article class="operational-notice">
@@ -130,6 +136,7 @@ function chooseSuggestion(index) {
   if (!x) return;
   $('location').value = x.name;
   $('location').dataset.code = x.code;
+  lastOperationalNotices = [];
   renderOperationalNotices();
   boardModeManuallySelected = false;
   resetFromToNow();
@@ -260,6 +267,8 @@ function applyTrainData(d) {
   }
   activeLocationCode = d.location_code || activeLocationCode;
   lastTrainItems = d.items || [];
+  lastOperationalNotices = d.operational_notices || [];
+  renderOperationalNotices();
   $('source').textContent = 'Oppdater';
   $('updated').textContent = formatSourceTime(d.source_time);
   $('welcome').hidden = true;
@@ -297,7 +306,7 @@ async function loadRouteGraphs(requestId) {
   }
 }
 
-async function loadTrains(allowModeFallback=true) {
+async function loadTrains(allowModeFallback=true,allowDateFallback=true) {
   const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
@@ -330,6 +339,13 @@ async function loadTrains(allowModeFallback=true) {
       }
     }
     if (requestId !== loadRequestId) return;
+    if (allowDateFallback && autoFromNow && $('date').value === localDate(new Date()) && !(d.items || []).length) {
+      $('date').value = nextDate($('date').value);
+      $('from').value = '00:00';
+      autoFromNow = false;
+      syncPickerButtons();
+      return loadTrains(false,false);
+    }
     applyTrainData(d);
   } catch (e) {
     if (requestId !== loadRequestId) return;
@@ -406,6 +422,7 @@ async function openDetail(itemKey, force=false) {
 }
 $('location').addEventListener('input', () => {
   $('location').dataset.code = '';
+  lastOperationalNotices = [];
   renderOperationalNotices();
   clearTimeout(searchTimer);
   searchTimer = setTimeout(updateSuggestions, 120);
@@ -494,6 +511,7 @@ async function useMyLocation() {
       const x = await nearestLocation(pos.coords.latitude, pos.coords.longitude);
       $('location').value = x.name;
       $('location').dataset.code = x.code;
+      lastOperationalNotices = [];
       renderOperationalNotices();
       boardModeManuallySelected = false;
       resetFromToNow();

@@ -62,9 +62,9 @@ function clockFromHour(value) {
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 
-async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStationCodes=[]) {
+async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStationCodes=[], sectionStationCodes=[]) {
   const {OPS}=await getResolvedPDFJS();
-  const known=new Set(knownStationCodes), occurrences=[];
+  const known=new Set(knownStationCodes), sectionStations=new Set(sectionStationCodes), occurrences=[], sectionLabels=[];
 
   for(const {pageNumber,pageItems} of pages) {
     const pageIndex=pageNumber-1;
@@ -98,6 +98,16 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
           const hour=interpolateHour(x,hours), time=clockFromHour(hour);
           if(time && Math.abs(station.y-y)<=48) occurrences.push({train_no:trainNo,page:pageIndex+1,x,y,
             station_code:station.code,time,minute:Math.round(hour*60),work_hint:text.blue});
+        } else if(!rotated && text.blue && /^\d{4,6}$/.test(trainNo)) {
+          const preferred=stations.filter(item=>sectionStations.has(item.code));
+          const ordered=[...(preferred.length>=2?preferred:stations)].sort((left,right)=>right.y-left.y);
+          const above=ordered.filter(item=>item.y>=y).sort((left,right)=>left.y-right.y)[0];
+          const below=ordered.filter(item=>item.y<=y).sort((left,right)=>right.y-left.y)[0];
+          const hour=interpolateHour(x,hours), time=clockFromHour(hour);
+          if(time && above && below && above.code!==below.code && Math.abs(above.y-below.y)<=70) {
+            sectionLabels.push({train_no:trainNo,page:pageIndex+1,time,minute:Math.round(hour*60),
+              section_codes:[above.code,below.code],work_hint:true});
+          }
         }
         text=null;
       }
@@ -130,27 +140,33 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
         origin_code:route[0].code,destination_code:route.at(-1).code,work_hint:segment.some(item=>item.work_hint),route});
     }
   }
-  return trains;
+  return {trains,operational_markers:occurrences.map(item=>({
+    train_no:item.train_no,line_number:line,station_code:item.station_code,time:item.time,minute:item.minute,work_hint:item.work_hint,
+  })),operational_sections:sectionLabels.map(item=>({...item,line_number:line}))};
 }
 
-export async function extractPossibleWorkTrains(data, date, line, knownStationCodes=[]) {
+export async function extractPossibleWorkTrains(data, date, line, knownStationCodes=[], sectionStationCodes=[]) {
   const pdf=await getDocumentProxy(new Uint8Array(data));
   const {items}=await extractTextItems(pdf);
   const pages=items.map((pageItems,index)=>({pageNumber:index+1,pageItems}));
-  return possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes);
+  return (await possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes,sectionStationCodes)).trains;
 }
 
-export async function extractDailyGraphData(data, date, line, knownStationCodes=[], includePossibleWorkTrains=true, part=1, parts=1) {
+export async function extractDailyGraphData(data, date, line, knownStationCodes=[], includePossibleWorkTrains=true, part=1, parts=1, sectionStationCodes=[]) {
   const pdf=await getDocumentProxy(new Uint8Array(data));
   const first=Math.floor((part-1)*pdf.numPages/parts)+1;
   const last=Math.floor(part*pdf.numPages/parts);
   const pageNumbers=Array.from({length:Math.max(0,last-first+1)},(_,index)=>first+index);
   const pages=await Promise.all(pageNumbers.map(async pageNumber=>({pageNumber,pageItems:await pageTextItems(pdf,pageNumber)})));
   const items=pages.map(page=>page.pageItems);
+  const workData=includePossibleWorkTrains
+    ? await possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes,sectionStationCodes)
+    : {trains:[],operational_markers:[],operational_sections:[]};
   return {
     numbers:graphNumbersFromItems(items),
-    possible_work_trains:includePossibleWorkTrains
-      ? await possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes) : [],
+    possible_work_trains:workData.trains,
+    operational_markers:workData.operational_markers,
+    operational_sections:workData.operational_sections,
   };
 }
 

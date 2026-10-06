@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -323,8 +323,53 @@ test('merges independently processed daily graph lines', () => {
   ],3);
   assert.deepEqual(merged,{
     trains:['123','456'],possible_work_trains:[{train_no:'9001'},{train_no:'9002'}],
+    operational_markers:[],operational_sections:[],
     graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',
   });
+});
+
+test('builds a cross-midnight section notice from split graph markers', () => {
+  const graphData={
+    operational_markers:[
+      {train_no:'54702',line_number:24,station_code:'HLD',time:'06:53',minute:413},
+      {train_no:'54702',line_number:24,station_code:'HLD',time:'22:54',minute:1374},
+    ],
+    operational_sections:[
+      {train_no:'54702',line_number:24,time:'01:52',minute:112,section_codes:['HLD','BG']},
+      {train_no:'54702',line_number:24,time:'03:54',minute:234,section_codes:['HLD','BG']},
+    ],
+  };
+  const result=buildGraphOperationalNotices(graphData,'2026-10-06','HLD',[
+    {code:'HLD',name:'Halden'},{code:'BG',name:'Berg'},
+  ]);
+  assert.equal(result.length,2);
+  assert.deepEqual(result[1],{
+    id:'graph:2026-10-06:24:54702:22:54',trainNo:'54702',route:'Halden–Berg',locationCodes:['HLD','BG'],
+    startsAt:'2026-10-06T22:54:00+02:00',endsAt:'2026-10-07T06:53:00+02:00',graphDate:'2026-10-06',graphLine:24,
+    message:'Toget er ført mellom Halden og Berg i rutegrafen i dette tidsrommet.',
+  });
+  assert.equal(buildGraphOperationalNotices(graphData,'2026-10-06','OSL',[]).length,0);
+});
+
+test('uses next-day ET cancellation status instead of the uncancelled plan', async () => {
+  const originalFetch=globalThis.fetch;
+  const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourney><DatedVehicleJourneyCode>139:2026-10-07</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalPlatformName>1</ArrivalPlatformName></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const et='<Siri><ServiceDelivery><EstimatedTimetableDelivery><ResponseTimestamp>2026-10-06T23:40:00+02:00</ResponseTimestamp><EstimatedJourneyVersionFrame><EstimatedVehicleJourney><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourneyRef>139:2026-10-07</DatedVehicleJourneyRef><Cancellation>true</Cancellation><OriginName>Oslo S</OriginName><DestinationName>Halden</DestinationName><OperatorRef>VY</OperatorRef><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><VehicleRef>139</VehicleRef><EstimatedCalls><EstimatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><Cancellation>true</Cancellation><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalStatus>cancelled</ArrivalStatus><ArrivalPlatformName>1</ArrivalPlatformName></EstimatedCall></EstimatedCalls></EstimatedVehicleJourney></EstimatedJourneyVersionFrame></EstimatedTimetableDelivery></ServiceDelivery></Siri>';
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/et')) return new Response(et,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[]});
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2026-10-07',today:'2026-10-06',fromTime:'00:00',toTime:'03:00'});
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].train_no,'139');
+    assert.equal(result.items[0].status,'Innstilt');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });
 
 test('builds a date-specific Bane NOR graph link for the selected route', () => {

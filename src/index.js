@@ -1,5 +1,6 @@
 import { DAILY_GRAPH_COUNT, extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
+import LOCATIONS from '../public/locations.json' with { type: 'json' };
 import { filterProductionTimetableXml } from './pt-filter.js';
 
 const SIRI = 'https://siri.banenor.no/jbv';
@@ -8,8 +9,9 @@ const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing'
 const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
 const MAX_WORK_GRAPH_BYTES = 350 * 1024;
-const GRAPH_PARSER_VERSION = 'v2';
+const GRAPH_PARSER_VERSION = 'v3';
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
+const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjon').map(location=>location.code);
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -110,9 +112,9 @@ async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
     if(!cached && store) cached=await store.get(`daily-graph:${GRAPH_PARSER_VERSION}:${date}:${line}`,'json');
   }
   const checkedAt=Date.parse(cached?.checked_at || '');
-  if(cached && Array.isArray(cached.possible_work_trains) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
+  if(cached && Array.isArray(cached.possible_work_trains) && Array.isArray(cached.operational_sections) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
 
-  if(cached && Array.isArray(cached.possible_work_trains)) {
+  if(cached && Array.isArray(cached.possible_work_trains) && Array.isArray(cached.operational_sections)) {
     try {
       const head=await fetch(graphUrl(date,line),{
         method:'HEAD',cf:{cacheEverything:true,cacheTtl:120},headers:{'User-Agent':'Togoversikt.no/1.0'},signal:AbortSignal.timeout(10000)
@@ -139,15 +141,17 @@ async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
   // A few unusually large graph sheets exceed the Worker's memory budget when
   // PDF drawing operators are expanded. Keep ordinary graph confirmation for
   // those sheets, but never let them take down results from the other lines.
-  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES,part,parts);
+  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES,part,parts,SECTION_STATION_CODES);
   if(cached?.content_hash===contentHash) {
-    const unchanged={...cached,possible_work_trains:possibleWorkTrains,
+    const unchanged={...cached,possible_work_trains:graphData.possible_work_trains,
+      operational_markers:graphData.operational_markers,operational_sections:graphData.operational_sections,
       remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
     await storeGraphResult(cache,cacheKey,store,storeKey,unchanged,ctx,true);
     return unchanged;
   }
   const now=new Date().toISOString();
   const data={date,line,numbers:[...new Set(graphData.numbers)],possible_work_trains:graphData.possible_work_trains,
+    operational_markers:graphData.operational_markers,operational_sections:graphData.operational_sections,
     source_time:now,checked_at:now,
     remote_version:remoteVersion,content_hash:contentHash};
   await storeGraphResult(cache,cacheKey,store,storeKey,data,ctx,true);
@@ -174,6 +178,8 @@ async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=n
   const loaded=results.filter(Boolean);
   return {date,numbers:[...new Set(loaded.flatMap(result=>result.numbers))],
     possible_work_trains:loaded.flatMap(result=>result.possible_work_trains || []),graphs_loaded:loaded.length,
+    operational_markers:loaded.flatMap(result=>result.operational_markers || []),
+    operational_sections:loaded.flatMap(result=>result.operational_sections || []),
     graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null};
 }
 
@@ -201,7 +207,8 @@ async function dailyGraphMatches(request, ctx, store) {
     return deduped;
   },new Map()).values()];
   return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
-    graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains},{
+    graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains,
+    operational_markers:data.operational_markers,operational_sections:data.operational_sections},{
     headers:{'Cache-Control':'public, max-age=300'}
   });
 }
