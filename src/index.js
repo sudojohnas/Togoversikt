@@ -8,6 +8,7 @@ const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing'
 const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
 const MAX_WORK_GRAPH_BYTES = 350 * 1024;
+const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -15,12 +16,22 @@ function copyParams(source, target, allowed) {
   }
 }
 
+async function fetchUpstream(url, options) {
+  let response;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    response = await fetch(url, options);
+    if (!TRANSIENT_UPSTREAM_STATUSES.has(response.status) || attempt === 1) return response;
+    await response.body?.cancel();
+  }
+  return response;
+}
+
 async function proxyXml(request, upstreamBase, allowed, ttl) {
   const incoming = new URL(request.url);
   const upstream = new URL(upstreamBase);
   copyParams(incoming.searchParams, upstream.searchParams, allowed);
-  const response = await fetch(upstream.toString(), {
-    cf: { cacheEverything: true, cacheTtl: ttl },
+  const response = await fetchUpstream(upstream.toString(), {
+    cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '300-599': 0 } },
     headers: { 'User-Agent': 'Togoversikt.no/1.0' },
   });
   const headers = new Headers(response.headers);

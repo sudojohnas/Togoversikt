@@ -566,20 +566,20 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const historical=minutes(toTime)<minutes(nowOslo) || minutes(fromTime)<minutes(nowOslo)-30;
     if(historical) {
       const [et,graphItems,liveResult]=await Promise.all([
-        getLiveEt(),
+        (async()=>{ try { return await getLiveEt(); } catch { return null; } })(),
         getGraphItems(locationCode,date,fromTime,toTime,eventType),
         (async()=>{ try {
           const live=await getTogkart();
           return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType))};
         } catch { return null; } })(),
       ]);
-      const etItems=queryDataset(et,locationCode,date,fromTime,toTime,false,eventType);
+      const etItems=et ? queryDataset(et,locationCode,date,fromTime,toTime,false,eventType) : [];
       if(liveResult) {
         const items=mergeLiveItems(graphItems,etItems,liveResult.items)
           .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
-        return {items,source_time:liveResult.live.source_time || et.source_time,mode:'live',location,location_code:locationCode,date};
+        return {items,source_time:liveResult.live.source_time || et?.source_time || null,mode:'live',location,location_code:locationCode,date};
       }
-      return {items:mergeLiveItems(graphItems,etItems),source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
+      return {items:mergeLiveItems(graphItems,etItems),source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;

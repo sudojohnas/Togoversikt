@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -292,4 +292,24 @@ test('ships the active stopping points in the searchable location list', () => {
   const byCode=new Map(locations.map(location=>[location.code,location]));
   assert.equal(byCode.get('NTH')?.name,'Nationaltheatret');
   for(const code of ['LIE','LSD','NBY','SDA','JÅT']) assert.ok(byCode.has(code),`${code} mangler`);
+});
+
+test('uses the production timetable when historical ET is temporarily unavailable', async () => {
+  const originalFetch=globalThis.fetch;
+  const pt=`<Siri><ServiceDelivery><ProductionTimetableDelivery><ResponseTimestamp>2026-10-06T12:00:00+02:00</ResponseTimestamp><DatedTimetableVersionFrame><OperatorRef>CN</OperatorRef><LineRef>F1</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>123</DatedVehicleJourneyCode><DatedCalls><DatedCall><StopPointRef>OSL</StopPointRef><StopPointName>Oslo S</StopPointName><AimedArrivalTime>2026-10-06T12:00:00+02:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>`;
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path.startsWith('/api/et')) return new Response('utilgjengelig',{status:503});
+    if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/daily-graphs')) return Response.json({detail:'utilgjengelig'},{status:503});
+    if(path.startsWith('/api/togkart')) return Response.json({detail:'utilgjengelig'},{status:503});
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'OSL',location:'Oslo S',date:'2026-10-06',today:'2026-10-06',fromTime:'00:00',toTime:'13:00'});
+    assert.deepEqual(result.items.map(item=>item.train_no),['123']);
+    assert.equal(result.items[0].source,'Bane NOR SIRI PT');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });
