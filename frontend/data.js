@@ -20,11 +20,17 @@ let togkartCache = null;
 const planCache = new Map();
 const filteredEtCache = new Map();
 
-function dailyGraphUrl(date,line) {
+export function dailyGraphUrl(date,line) {
   const url=new URL(DAILY_GRAPH_URL);
   url.searchParams.set('dateInput',date);
   url.searchParams.set('selectLine',String(line));
   return url.toString();
+}
+
+export async function routeGraphsForLocation(locationCode,date) {
+  const p=new URLSearchParams({location:String(locationCode || '').toUpperCase()});
+  const response=await fetchJson(`/api/daily-graph-lines?${p}`);
+  return (response.lines || []).map(line=>({line:Number(line),url:dailyGraphUrl(date,line)}));
 }
 
 function searchKey(value='') {

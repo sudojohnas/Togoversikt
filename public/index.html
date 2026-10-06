@@ -20,6 +20,10 @@
               <span><strong>Togkart</strong><small>Sanntidskart fra Bane NOR</small></span>
               <span class="site-menu-item-meta">På siden</span>
             </button>
+            <a class="site-menu-item" href="https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/" target="_blank" rel="noopener noreferrer" role="menuitem">
+              <span><strong>Daglige rutegrafer</strong><small>Rutegrafer for hele jernbanenettet fra Bane NOR</small></span>
+              <span class="external-icon" aria-hidden="true">↗</span>
+            </a>
             <a class="site-menu-item" href="https://www.openrailwaymap.org" target="_blank" rel="noopener noreferrer" role="menuitem">
               <span><strong>OpenRailwayMap</strong><small>Åpent kart over jernbaneinfrastruktur</small></span>
               <span class="external-icon" aria-hidden="true">↗</span>
@@ -90,6 +94,15 @@
         <button id="show-departures" type="button" aria-pressed="false">Avgang</button>
         <button id="show-both" type="button" aria-pressed="false">Begge</button>
       </div>
+
+      <section id="route-graphs" class="route-graphs panel" hidden aria-labelledby="route-graphs-title">
+        <div class="route-graphs-copy">
+          <div class="kicker">Bane NOR</div>
+          <strong id="route-graphs-title">Rutegrafer for valgt stasjon</strong>
+          <span id="route-graphs-description">Henter aktuelle strekninger …</span>
+        </div>
+        <div id="route-graph-links" class="route-graph-links"></div>
+      </section>
 
       <div id="update-notice" class="update-notice" hidden><span>Nye togdata er tilgjengelige.</span><button id="apply-update" type="button">Oppdater</button></div>
 

@@ -1,4 +1,4 @@
-import { searchLocations as searchLocationData, nearestLocation, queryTrains, trainDetail } from './data.js';
+import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -239,6 +239,33 @@ function applyTrainData(d) {
   renderTrainRows();
 }
 
+async function loadRouteGraphs(requestId) {
+  const locationCode=$('location').dataset.code || '';
+  const locationName=$('location').value.trim() || locationCode;
+  if(!locationCode) { $('route-graphs').hidden=true; return; }
+  $('route-graphs').hidden=false;
+  $('route-graphs-title').textContent=`Rutegrafer for ${locationName}`;
+  $('route-graphs-description').textContent='Henter aktuelle strekninger …';
+  $('route-graph-links').innerHTML='';
+  try {
+    const graphs=await routeGraphsForLocation(locationCode,$('date').value);
+    if(requestId!==loadRequestId) return;
+    if(!graphs.length) {
+      $('route-graphs-description').textContent='Fant ingen rutegraf koblet til dette stedet.';
+      return;
+    }
+    $('route-graphs-description').textContent=graphs.length===1
+      ? 'Åpne rutegrafen for strekningen som dekker valgt sted.'
+      : `${graphs.length} rutegrafer dekker valgt sted.`;
+    $('route-graph-links').innerHTML=graphs.map(graph=>
+      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer">Rutegraf ${esc(graph.line)} <span aria-hidden="true">↗</span></a>`
+    ).join('');
+  } catch {
+    if(requestId!==loadRequestId) return;
+    $('route-graphs-description').textContent='Kunne ikke hente aktuelle rutegrafer.';
+  }
+}
+
 async function loadTrains(allowModeFallback=true) {
   const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
@@ -253,6 +280,7 @@ async function loadTrains(allowModeFallback=true) {
   $('train-loading').hidden = false;
   $('table-panel').hidden = true;
   $('update-notice').hidden = true;
+  loadRouteGraphs(requestId);
   try {
     let d = await queryTrains(currentTrainQuery());
     if (requestId !== loadRequestId) return;

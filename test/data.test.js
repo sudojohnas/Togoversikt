@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -325,4 +325,10 @@ test('merges independently processed daily graph lines', () => {
     trains:['123','456'],possible_work_trains:[{train_no:'9001'},{train_no:'9002'}],
     graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',
   });
+});
+
+test('builds a date-specific Bane NOR graph link for the selected route', () => {
+  const url=new URL(dailyGraphUrl('2026-10-06',24));
+  assert.equal(url.searchParams.get('dateInput'),'2026-10-06');
+  assert.equal(url.searchParams.get('selectLine'),'24');
 });

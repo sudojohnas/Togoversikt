@@ -208,7 +208,7 @@ async function dailyGraphMatches(request, ctx, store) {
 function dailyGraphLines(request) {
   const url=new URL(request.url);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
-  return Response.json({location:locationCode,lines:graphLinesForLocation(locationCode)},
+  return Response.json({location:locationCode,lines:STATION_GRAPH_LINES[locationCode] || []},
     {headers:{'Cache-Control':'public, max-age=86400'}});
 }
 
