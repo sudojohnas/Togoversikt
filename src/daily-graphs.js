@@ -26,6 +26,13 @@ function graphNumbersFromItems(items) {
   return items.flat().map(item=>String(item.str || '').trim()).filter(value=>/^\d{1,6}$/.test(value));
 }
 
+async function pageTextItems(pdf, pageNumber) {
+  const content=await (await pdf.getPage(pageNumber)).getTextContent();
+  return content.items.filter(item=>item.str!=null).map(item=>({
+    str:item.str,x:item.transform[4],y:item.transform[5],width:item.width,height:item.height,
+  }));
+}
+
 export async function extractDailyGraphNumbers(data) {
   const {items}=await extractTextItems(new Uint8Array(data));
   return graphNumbersFromItems(items);
@@ -55,12 +62,12 @@ function clockFromHour(value) {
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 
-async function possibleWorkTrainsFromDocument(pdf, items, date, line, knownStationCodes=[]) {
+async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStationCodes=[]) {
   const {OPS}=await getResolvedPDFJS();
   const known=new Set(knownStationCodes), occurrences=[];
 
-  for(let pageIndex=0;pageIndex<pdf.numPages;pageIndex++) {
-    const pageItems=items[pageIndex] || [];
+  for(const {pageNumber,pageItems} of pages) {
+    const pageIndex=pageNumber-1;
     const stations=pageItems
       .map(item=>({code:String(item.str || '').trim().toUpperCase(),x:Number(item.x),y:Number(item.y)}))
       .filter(item=>item.x>=785 && known.has(item.code));
@@ -129,16 +136,21 @@ async function possibleWorkTrainsFromDocument(pdf, items, date, line, knownStati
 export async function extractPossibleWorkTrains(data, date, line, knownStationCodes=[]) {
   const pdf=await getDocumentProxy(new Uint8Array(data));
   const {items}=await extractTextItems(pdf);
-  return possibleWorkTrainsFromDocument(pdf,items,date,line,knownStationCodes);
+  const pages=items.map((pageItems,index)=>({pageNumber:index+1,pageItems}));
+  return possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes);
 }
 
-export async function extractDailyGraphData(data, date, line, knownStationCodes=[], includePossibleWorkTrains=true) {
+export async function extractDailyGraphData(data, date, line, knownStationCodes=[], includePossibleWorkTrains=true, part=1, parts=1) {
   const pdf=await getDocumentProxy(new Uint8Array(data));
-  const {items}=await extractTextItems(pdf);
+  const first=Math.floor((part-1)*pdf.numPages/parts)+1;
+  const last=Math.floor(part*pdf.numPages/parts);
+  const pageNumbers=Array.from({length:Math.max(0,last-first+1)},(_,index)=>first+index);
+  const pages=await Promise.all(pageNumbers.map(async pageNumber=>({pageNumber,pageItems:await pageTextItems(pdf,pageNumber)})));
+  const items=pages.map(page=>page.pageItems);
   return {
     numbers:graphNumbersFromItems(items),
     possible_work_trains:includePossibleWorkTrains
-      ? await possibleWorkTrainsFromDocument(pdf,items,date,line,knownStationCodes) : [],
+      ? await possibleWorkTrainsFromDocument(pdf,pages,date,line,knownStationCodes) : [],
   };
 }
 

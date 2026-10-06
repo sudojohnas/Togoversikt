@@ -433,11 +433,13 @@ async function getDailyGraphs(date, locationCode, trains) {
   const lineParams=new URLSearchParams({location:locationCode});
   const manifest=await fetchJson(`/api/daily-graph-lines?${lineParams}`);
   const lines=Array.isArray(manifest.lines) ? manifest.lines : [];
-  const responses=await Promise.all(lines.map(async line=>{
-    const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line)});
+  const parts=2;
+  const requests=lines.flatMap(line=>Array.from({length:parts},(_,index)=>({line,part:index+1})));
+  const responses=await Promise.all(requests.map(async ({line,part})=>{
+    const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line),part:String(part),parts:String(parts)});
     try { return await fetchJson(`/api/daily-graphs?${p}`); } catch { return null; }
   }));
-  return mergeDailyGraphResponses(responses,lines.length);
+  return mergeDailyGraphResponses(responses,requests.length);
 }
 async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);

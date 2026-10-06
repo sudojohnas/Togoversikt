@@ -91,10 +91,11 @@ async function storeGraphResult(cache, cacheKey, store, storeKey, data, ctx, per
   if(persist && store) await store.put(storeKey,JSON.stringify(data));
 }
 
-async function dailyGraphLine(date, line, ctx, store) {
+async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
   const cache=typeof caches!=='undefined' ? caches.default : null;
-  const cacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${date}/${line}`);
-  const storeKey=`daily-graph:${date}:${line}`;
+  const partKey=parts>1?`:${part}-of-${parts}`:'';
+  const cacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${date}/${line}${partKey}`);
+  const storeKey=`daily-graph:${date}:${line}${partKey}`;
   const cachedResponse=cache ? await cache.match(cacheKey) : null;
   let cached=cachedResponse ? await cachedResponse.json() : null;
   if(!cached && store) {
@@ -131,7 +132,7 @@ async function dailyGraphLine(date, line, ctx, store) {
   // A few unusually large graph sheets exceed the Worker's memory budget when
   // PDF drawing operators are expanded. Keep ordinary graph confirmation for
   // those sheets, but never let them take down results from the other lines.
-  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES);
+  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES,part,parts);
   if(cached?.content_hash===contentHash) {
     const unchanged={...cached,possible_work_trains:possibleWorkTrains,
       remote_version:remoteVersion || cached.remote_version,checked_at:new Date().toISOString()};
@@ -151,7 +152,7 @@ function graphLinesForLocation(locationCode) {
   return configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
 }
 
-async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=null) {
+async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=null, part=1, parts=1) {
   const configuredLines=graphLinesForLocation(locationCode);
   const lines=requestedLine==null ? configuredLines : configuredLines.includes(requestedLine) ? [requestedLine] : [];
   const results=new Array(lines.length);
@@ -159,7 +160,7 @@ async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=n
   const workers=Array.from({length:Math.min(2,lines.length)},async()=>{
     while(cursor<lines.length) {
       const index=cursor++;
-      try { results[index]=await dailyGraphLine(date,lines[index],ctx,store); } catch { results[index]=null; }
+      try { results[index]=await dailyGraphLine(date,lines[index],ctx,store,part,parts); } catch { results[index]=null; }
     }
   });
   await Promise.all(workers);
@@ -179,7 +180,11 @@ async function dailyGraphMatches(request, ctx, store) {
   if(rawLine!=null && (!Number.isInteger(requestedLine) || requestedLine<1 || requestedLine>DAILY_GRAPH_COUNT || !graphLinesForLocation(locationCode).includes(requestedLine))) {
     return Response.json({detail:'Ugyldig rutegraflinje'},{status:400});
   }
-  const data=await dailyGraphNumbers(date,locationCode,ctx,store,requestedLine);
+  const parts=Number(url.searchParams.get('parts') || 1), part=Number(url.searchParams.get('part') || 1);
+  if(!Number.isInteger(parts) || parts<1 || parts>8 || !Number.isInteger(part) || part<1 || part>parts) {
+    return Response.json({detail:'Ugyldig grafdel'},{status:400});
+  }
+  const data=await dailyGraphNumbers(date,locationCode,ctx,store,requestedLine,part,parts);
   const possibleAtLocation=data.possible_work_trains.filter(train=>train.route.some(stop=>stop.code===locationCode));
   const possibleWorkTrains=[...possibleAtLocation.reduce((deduped,train)=>{
     const stop=train.route.find(item=>item.code===locationCode);
