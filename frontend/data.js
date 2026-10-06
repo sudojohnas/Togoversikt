@@ -419,11 +419,30 @@ async function getPlan(date, locationCode, force=false) {
   p.set('StopPointRef',locationCode);
   const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(key,{ts:Date.now(),data}); return data;
 }
+export function mergeDailyGraphResponses(responses=[], expected=responses.length) {
+  const loaded=responses.filter(Boolean);
+  return {
+    trains:[...new Set(loaded.flatMap(response=>response.trains || []).map(String))],
+    possible_work_trains:loaded.flatMap(response=>response.possible_work_trains || []),
+    graphs_loaded:loaded.reduce((sum,response)=>sum+(Number(response.graphs_loaded) || 0),0),
+    graphs_expected:expected,
+    source_time:loaded.map(response=>response.source_time).filter(Boolean).sort().at(-1) || null,
+  };
+}
+async function getDailyGraphs(date, locationCode, trains) {
+  const lineParams=new URLSearchParams({location:locationCode});
+  const manifest=await fetchJson(`/api/daily-graph-lines?${lineParams}`);
+  const lines=Array.isArray(manifest.lines) ? manifest.lines : [];
+  const responses=await Promise.all(lines.map(async line=>{
+    const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line)});
+    try { return await fetchJson(`/api/daily-graphs?${p}`); } catch { return null; }
+  }));
+  return mergeDailyGraphResponses(responses,lines.length);
+}
 async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
   const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
-  const p=new URLSearchParams({date,location:locationCode,trains:trains.join(',')});
-  const response=await fetchJson(`/api/daily-graphs?${p}`);
+  const response=await getDailyGraphs(date,locationCode,trains);
   if(!response.graphs_loaded) return items;
   const found=new Set((response.trains || []).map(String));
   const possibleWorkTrains=response.possible_work_trains || [];

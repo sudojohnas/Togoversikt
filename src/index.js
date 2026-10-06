@@ -146,9 +146,14 @@ async function dailyGraphLine(date, line, ctx, store) {
   return data;
 }
 
-async function dailyGraphNumbers(date, locationCode, ctx, store) {
+function graphLinesForLocation(locationCode) {
   const configured=STATION_GRAPH_LINES[locationCode];
-  const lines=configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
+  return configured?.length ? configured : Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1);
+}
+
+async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=null) {
+  const configuredLines=graphLinesForLocation(locationCode);
+  const lines=requestedLine==null ? configuredLines : configuredLines.includes(requestedLine) ? [requestedLine] : [];
   const results=new Array(lines.length);
   let cursor=0;
   const workers=Array.from({length:Math.min(2,lines.length)},async()=>{
@@ -169,7 +174,12 @@ async function dailyGraphMatches(request, ctx, store) {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
   const candidates=(url.searchParams.get('trains') || '').split(',').map(x=>x.trim()).filter(x=>/^\d{1,6}$/.test(x)).slice(0,500);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
-  const data=await dailyGraphNumbers(date,locationCode,ctx,store);
+  const rawLine=url.searchParams.get('line');
+  const requestedLine=rawLine==null ? null : Number(rawLine);
+  if(rawLine!=null && (!Number.isInteger(requestedLine) || requestedLine<1 || requestedLine>DAILY_GRAPH_COUNT || !graphLinesForLocation(locationCode).includes(requestedLine))) {
+    return Response.json({detail:'Ugyldig rutegraflinje'},{status:400});
+  }
+  const data=await dailyGraphNumbers(date,locationCode,ctx,store,requestedLine);
   const possibleAtLocation=data.possible_work_trains.filter(train=>train.route.some(stop=>stop.code===locationCode));
   const possibleWorkTrains=[...possibleAtLocation.reduce((deduped,train)=>{
     const stop=train.route.find(item=>item.code===locationCode);
@@ -182,6 +192,13 @@ async function dailyGraphMatches(request, ctx, store) {
     graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains},{
     headers:{'Cache-Control':'public, max-age=300'}
   });
+}
+
+function dailyGraphLines(request) {
+  const url=new URL(request.url);
+  const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
+  return Response.json({location:locationCode,lines:graphLinesForLocation(locationCode)},
+    {headers:{'Cache-Control':'public, max-age=86400'}});
 }
 
 async function proxyNearest(request) {
@@ -231,6 +248,7 @@ export default {
     }
     if (url.pathname === '/api/togkart') return proxyTogkart();
     if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx,env.ROUTE_GRAPHS);
+    if (url.pathname === '/api/daily-graph-lines') return dailyGraphLines(request);
     if (url.pathname === '/api/nearest') return proxyNearest(request);
     if (url.pathname === '/health') {
       return Response.json({ status: 'ok', mode: 'Cloudflare Worker proxy', time: new Date().toISOString() });

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { callDisplayTimes, callWindowState, combineEventItems, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -301,6 +301,7 @@ test('uses the production timetable when historical ET is temporarily unavailabl
     const path=String(url);
     if(path.startsWith('/api/et')) return new Response('utilgjengelig',{status:503});
     if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'OSL',lines:[1]});
     if(path.startsWith('/api/daily-graphs')) return Response.json({detail:'utilgjengelig'},{status:503});
     if(path.startsWith('/api/togkart')) return Response.json({detail:'utilgjengelig'},{status:503});
     throw new Error(`Uventet kall: ${path}`);
@@ -312,4 +313,16 @@ test('uses the production timetable when historical ET is temporarily unavailabl
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('merges independently processed daily graph lines', () => {
+  const merged=mergeDailyGraphResponses([
+    {trains:['123'],possible_work_trains:[{train_no:'9001'}],graphs_loaded:1,source_time:'2026-10-06T10:00:00Z'},
+    null,
+    {trains:['123','456'],possible_work_trains:[{train_no:'9002'}],graphs_loaded:1,source_time:'2026-10-06T10:02:00Z'},
+  ],3);
+  assert.deepEqual(merged,{
+    trains:['123','456'],possible_work_trains:[{train_no:'9001'},{train_no:'9002'}],
+    graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',
+  });
 });
