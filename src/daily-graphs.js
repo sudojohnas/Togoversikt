@@ -29,7 +29,7 @@ function graphNumbersFromItems(items) {
 async function pageTextItems(pdf, pageNumber) {
   const content=await (await pdf.getPage(pageNumber)).getTextContent();
   return content.items.filter(item=>item.str!=null).map(item=>({
-    str:item.str,x:item.transform[4],y:item.transform[5],width:item.width,height:item.height,
+    str:item.str,x:item.transform[4],y:item.transform[5],width:item.width,height:item.height,transform:Array.from(item.transform),
   }));
 }
 
@@ -62,6 +62,90 @@ function clockFromHour(value) {
   return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
 }
 
+function pointFromMatrix(matrix,x,y) {
+  return {x:matrix[0]*x+matrix[2]*y+matrix[4],y:matrix[1]*x+matrix[3]*y+matrix[5]};
+}
+
+function pointToSegmentDistance(point,segment) {
+  const dx=segment.b.x-segment.a.x, dy=segment.b.y-segment.a.y, lengthSquared=dx*dx+dy*dy;
+  if(!lengthSquared) return Math.hypot(point.x-segment.a.x,point.y-segment.a.y);
+  const ratio=Math.max(0,Math.min(1,((point.x-segment.a.x)*dx+(point.y-segment.a.y)*dy)/lengthSquared));
+  return Math.hypot(point.x-(segment.a.x+ratio*dx),point.y-(segment.a.y+ratio*dy));
+}
+
+export function matchGraphPathLabel(crossing, segment, labels) {
+  const dx=segment.b.x-segment.a.x, dy=segment.b.y-segment.a.y, magnitude=Math.hypot(dx,dy);
+  if(!magnitude) return null;
+  let best=null;
+  for(const label of labels) {
+    const labelMagnitude=Math.hypot(label.vx,label.vy);
+    if(!labelMagnitude) continue;
+    const parallel=Math.abs((dx*label.vx+dy*label.vy)/(magnitude*labelMagnitude));
+    const perpendicular=Math.abs((crossing.y-label.y)*label.vx-(crossing.x-label.x)*label.vy)/labelMagnitude;
+    const distance=pointToSegmentDistance(label,segment);
+    const score=perpendicular+80*(1-parallel)+0.03*distance;
+    if((!best || score<best.score) && distance<300) best={...label,score,distance};
+  }
+  return best && best.score<=25 ? best : null;
+}
+
+function graphPathSegments(operators, OPS, initialState) {
+  let state={...initialState,matrix:[...initialState.matrix],dash:[]}, stack=[];
+  const segments=[];
+  for(let i=0;i<operators.fnArray.length;i++) {
+    const fn=operators.fnArray[i], args=operators.argsArray[i];
+    if(fn===OPS.save) stack.push({...state,matrix:[...state.matrix],dash:[...state.dash]});
+    else if(fn===OPS.restore) state=stack.pop() || state;
+    else if(fn===OPS.transform) state.matrix=multiplyTransform(state.matrix,Array.from(args));
+    else if(fn===OPS.setStrokeRGBColor) state.stroke=String(args?.[0] || '').toLowerCase();
+    else if(fn===OPS.setLineWidth) state.width=Number(args?.[0]);
+    else if(fn===OPS.setDash) state.dash=Array.from(args?.[0] || []);
+    else if(fn===OPS.constructPath) {
+      const raw=Array.from(args?.[1]?.[0] || []);
+      let cursor=null;
+      for(let j=0;j<raw.length;) {
+        const operation=raw[j++];
+        if(operation===0) cursor=pointFromMatrix(state.matrix,raw[j++],raw[j++]);
+        else if(operation===1) {
+          const next=pointFromMatrix(state.matrix,raw[j++],raw[j++]);
+          if(cursor) segments.push({a:cursor,b:next,stroke:state.stroke,width:state.width,dash:state.dash});
+          cursor=next;
+        } else if(operation===2) j+=6;
+        else if(operation===3) j+=4;
+        else if(operation!==4) break;
+      }
+    }
+  }
+  return segments;
+}
+
+function pathCrossingOccurrences(segments, labels, stations, hours, page, line) {
+  const minX=hours[0].x-3, maxX=hours.at(-1).x+3;
+  const minY=Math.min(...stations.map(station=>station.y))-3;
+  const maxY=Math.max(...stations.map(station=>station.y))+3;
+  const trainColors=new Set(['#000000','#010101','#0000ff','#fed349','#ff0000']);
+  const candidates=segments.filter(segment=>{
+    const dx=Math.abs(segment.b.x-segment.a.x), dy=Math.abs(segment.b.y-segment.a.y);
+    return trainColors.has(segment.stroke) && segment.width>0 && segment.width<=2 && !segment.dash.length && dx>0.1 && dy>0.1 &&
+      segment.a.x>=minX && segment.a.x<=maxX && segment.b.x>=minX && segment.b.x<=maxX &&
+      segment.a.y>=minY && segment.a.y<=maxY && segment.b.y>=minY && segment.b.y<=maxY;
+  });
+  const occurrences=[];
+  for(const segment of candidates) for(const station of stations) {
+    if(!((segment.a.y<=station.y && segment.b.y>=station.y)||(segment.b.y<=station.y && segment.a.y>=station.y))) continue;
+    const ratio=(station.y-segment.a.y)/(segment.b.y-segment.a.y);
+    const x=segment.a.x+ratio*(segment.b.x-segment.a.x);
+    if(x<minX || x>maxX) continue;
+    const label=matchGraphPathLabel({x,y:station.y},segment,labels);
+    const hour=interpolateHour(x,hours), time=clockFromHour(hour);
+    if(!label || !time) continue;
+    const coloredPath=!['#000000','#010101'].includes(segment.stroke);
+    occurrences.push({train_no:label.train_no,page,x,y:station.y,station_code:station.code,time,
+      minute:Math.round(hour*60),work_hint:coloredPath && label.train_no.length>=4,line_number:line});
+  }
+  return occurrences;
+}
+
 async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStationCodes=[], sectionStationCodes=[]) {
   const {OPS}=await getResolvedPDFJS();
   const known=new Set(knownStationCodes), sectionStations=new Set(sectionStationCodes), occurrences=[], sectionLabels=[];
@@ -76,6 +160,11 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       .filter(item=>item.y>1100 && item.x>=100 && item.x<=750 && /^\d{1,2}$/.test(item.raw))
       .map(item=>({hour:Number(item.raw),x:item.x})).sort((a,b)=>a.x-b.x);
     if(!stations.length || hours.length<2) continue;
+
+    const pathLabels=pageItems.map(item=>({
+      train_no:String(item.str || '').trim(),x:Number(item.x),y:Number(item.y),
+      vx:Number(item.transform?.[0]),vy:Number(item.transform?.[1]),
+    })).filter(item=>/^\d{3,6}$/.test(item.train_no) && Number.isFinite(item.vx) && Number.isFinite(item.vy) && Math.abs(item.vy)>0.05);
 
     const page=await pdf.getPage(pageIndex+1), operators=await page.getOperatorList();
     let state={fill:'',stroke:'',matrix:[1,0,0,1,0,0]}, stack=[], text=null;
@@ -112,6 +201,14 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
         text=null;
       }
     }
+    const crossings=pathCrossingOccurrences(graphPathSegments(operators,OPS,{matrix:[1,0,0,1,0,0],stroke:'',width:0}),
+      pathLabels,stations,hours,pageIndex+1,line);
+    const crossingKeys=new Set(crossings.map(item=>`${item.train_no}:${item.page}:${item.station_code}`));
+    for(let index=occurrences.length-1;index>=0;index--) {
+      const item=occurrences[index];
+      if(item.page===pageIndex+1 && crossingKeys.has(`${item.train_no}:${item.page}:${item.station_code}`)) occurrences.splice(index,1);
+    }
+    occurrences.push(...crossings);
   }
 
   const grouped=new Map();

@@ -9,7 +9,7 @@ const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing'
 const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
 const MAX_WORK_GRAPH_BYTES = 350 * 1024;
-const GRAPH_PARSER_VERSION = 'v3';
+const GRAPH_PARSER_VERSION = 'v4';
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjon').map(location=>location.code);
 
