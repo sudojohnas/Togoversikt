@@ -515,7 +515,10 @@ test('builds a cross-midnight section notice from split graph markers', () => {
 test('builds a partial notice when a section has no complete time range', () => {
   const result=buildGraphOperationalNotices({
     operational_markers:[{train_no:'54702',line_number:24,station_code:'HLD',time:'22:54',minute:1374,work_hint:true}],
-    operational_sections:[{train_no:'54702',line_number:24,time:'01:52',minute:112,section_codes:['HLD','BG']}],
+    operational_sections:[
+      {train_no:'54702',line_number:24,time:'01:52',minute:112,section_codes:['HLD','BG']},
+      {train_no:'54702',line_number:24,time:'03:54',minute:234,section_codes:['HLD','BG']},
+    ],
   },'2026-10-08','HLD',[{code:'HLD',name:'Halden'},{code:'BG',name:'Berg'}]);
   assert.equal(result.length,1);
   assert.equal(result[0].route,'Halden–Berg');
@@ -523,16 +526,25 @@ test('builds a partial notice when a section has no complete time range', () => 
   assert.deepEqual(result[0].knownTimes,['22:54']);
 });
 
-test('builds a conservative partial notice when only a special marker remains', () => {
+test('does not build a notice when the occupied section is missing', () => {
   const result=buildGraphOperationalNotices({
     operational_markers:[
       {train_no:'54702',line_number:24,station_code:'HLD',time:'22:54',minute:1374,work_hint:true},
       {train_no:'123',line_number:24,station_code:'HLD',time:'23:10',minute:1390,work_hint:false},
     ],operational_sections:[],
   },'2026-10-08','HLD',[{code:'HLD',name:'Halden'}]);
-  assert.equal(result.length,1);
-  assert.equal(result[0].route,'Strekning ikke identifisert');
-  assert.deepEqual(result[0].missing,['strekning','fullstendig tidsrom']);
+  assert.equal(result.length,0);
+});
+
+test('does not build a notice for a short section occupation', () => {
+  const result=buildGraphOperationalNotices({
+    operational_markers:[
+      {train_no:'55001',line_number:24,station_code:'HLD',time:'10:00',minute:600,work_hint:true},
+      {train_no:'55001',line_number:24,station_code:'BG',time:'10:35',minute:635,work_hint:true},
+    ],
+    operational_sections:[{train_no:'55001',line_number:24,time:'10:15',minute:615,section_codes:['HLD','BG']}],
+  },'2026-10-08','HLD',[{code:'HLD',name:'Halden'},{code:'BG',name:'Berg'}]);
+  assert.equal(result.length,0);
 });
 
 test('uses next-day ET cancellation status instead of the uncancelled plan', async () => {
