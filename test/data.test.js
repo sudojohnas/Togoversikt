@@ -29,6 +29,24 @@ test('uses an expected delayed time when one is available', () => {
   );
 });
 
+test('keeps an arrival active until its later expected departure', () => {
+  const call={
+    ...baseCall,
+    aimed_arrival_iso:'2026-09-27T11:00:00+02:00',
+    expected_arrival_iso:'2026-09-27T11:00:00+02:00',
+    aimed_departure_iso:'2026-09-27T11:30:00+02:00',
+    expected_departure_iso:'2026-09-27T11:40:00+02:00',
+  };
+  assert.deepEqual(
+    callWindowState(call,'2026-09-27','11:31','23:59',true,'arrival'),
+    {include:true,clock:'11:00',overdue:true},
+  );
+  const item={train_no:'1106',time:'11:00',active_until_time:'11:40',actual_time:null,status:'Forsinket'};
+  assert.deepEqual(filterLiveItems([item],'11:31','23:59'),[item]);
+  assert.equal(filterLiveItems([item],'11:41','23:59')[0].unconfirmed_remaining_minutes,29);
+  assert.deepEqual(filterLiveItems([item],'12:10','23:59'),[]);
+});
+
 test('removes the train after an actual passing time is recorded', () => {
   const call = {...baseCall, actual_iso:'2026-09-27T08:22:00+02:00', actual_departure_iso:'2026-09-27T08:22:00+02:00'};
   assert.deepEqual(

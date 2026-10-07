@@ -303,6 +303,13 @@ function callIso(call, eventType='auto') {
   }
   return call.actual_departure_iso || call.expected_departure_iso || call.aimed_departure_iso || call.actual_iso || call.expected_iso || call.planned_iso || '';
 }
+function activeUntilIso(call, eventType='auto') {
+  const eventIso=callIso(call,eventType);
+  if(eventType!=='arrival' || call?.actual_departure_iso) return eventIso;
+  const departureIso=call?.expected_departure_iso || call?.aimed_departure_iso || '';
+  const eventTime=new Date(eventIso).getTime(), departureTime=new Date(departureIso).getTime();
+  return Number.isFinite(departureTime) && (!Number.isFinite(eventTime) || departureTime>eventTime) ? departureIso : eventIso;
+}
 export function callDisplayTimes(call, eventType='auto') {
   if(eventType==='arrival' || (eventType==='auto' && callHasArrival(call))) return {
     planned:isoClock(call.aimed_arrival_iso || call.planned_iso), expected:isoClock(call.expected_arrival_iso || call.expected_iso),
@@ -321,7 +328,12 @@ export function callWindowState(call, selectedDate, fromTime, toTime, includeOve
   if(!includeOverdue || callHasPassed(call) || delayStatus(call,eventType)==='Innstilt') return {include:false,clock,overdue:false};
   const useArrival=eventType==='arrival' || (eventType==='auto' && callHasArrival(call));
   const actualEvent=useArrival?call.actual_arrival_iso:(call.actual_departure_iso || call.actual_iso);
-  const unconfirmedAge=minutes(fromTime)-minutes(clock);
+  // An arrival is still active while the train is waiting for a later expected
+  // departure. Start the no-information timeout at that departure instead.
+  const activeUntil=activeUntilIso(call,eventType);
+  const now=new Date(zonedIso(selectedDate,fromTime)).getTime();
+  const activeUntilTime=new Date(activeUntil).getTime();
+  const unconfirmedAge=Number.isFinite(now) && Number.isFinite(activeUntilTime)?(now-activeUntilTime)/60000:minutes(fromTime)-minutes(clock);
   if(!actualEvent && unconfirmedAge>=UNCONFIRMED_OVERDUE_MINUTES) return {include:false,clock,overdue:false};
   const plannedIso=useArrival?call.aimed_arrival_iso:(call.aimed_departure_iso || call.planned_iso || '');
   const plannedClock=isoClock(plannedIso);
@@ -338,13 +350,17 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
     const current=currentPosition(journey);
     const baseStatus=journeyCallStatus(journey,call,eventType);
     const display=callDisplayTimes(call,eventType);
-    const unconfirmedAge=minutes(fromTime)-minutes(clock);
+    const activeUntil=activeUntilIso(call,eventType);
+    const now=new Date(zonedIso(selectedDate,fromTime)).getTime();
+    const activeUntilTime=new Date(activeUntil).getTime();
+    const unconfirmedAge=Number.isFinite(now) && Number.isFinite(activeUntilTime)?(now-activeUntilTime)/60000:minutes(fromTime)-minutes(clock);
     const terminal=['Passert','Ankommet','Innstilt'].some(value=>String(baseStatus).includes(value));
     const unconfirmedRemaining=!terminal && !display.actual && unconfirmedAge>0 && unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES?
       UNCONFIRMED_OVERDUE_MINUTES-unconfirmedAge:null;
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
       direction_ref:journey.direction_ref,time:clock,planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
+      active_until_time:isoClock(activeUntil),
       platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
       unconfirmed_remaining_minutes:unconfirmedRemaining,
       current_location:current?.name || null,current_location_code:current?.code || null,source:journey.source,event_type:eventType});
@@ -353,6 +369,10 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
   return items;
 }
 export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
+  const referenceMinutes=item=>{
+    const event=minutes(item.time), active=item.active_until_time?minutes(item.active_until_time):event;
+    return active<event?active+1440:Math.max(event,active);
+  };
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
     const status=String(item.status || '').toLowerCase();
@@ -362,7 +382,7 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
     // Keep upcoming cancellations on the board, but remove them once their
     // scheduled time has passed just like other completed calls.
     if(status.includes('innstilt')) return false;
-    const unconfirmedAge=minutes(fromTime)-minutes(item.time);
+    const unconfirmedAge=minutes(fromTime)-referenceMinutes(item);
     return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
     const status=String(item.status || '').toLowerCase();
@@ -370,8 +390,8 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
       return {...item,unconfirmed_remaining_minutes:null};
     }
     if(item.time<fromTime && !item.actual_time) {
-      const unconfirmedAge=minutes(fromTime)-minutes(item.time);
-      return {...item,status:status.includes('forsinket')?item.status:'Forsinket',
+      const unconfirmedAge=minutes(fromTime)-referenceMinutes(item);
+      if(unconfirmedAge>0) return {...item,status:status.includes('forsinket')?item.status:'Forsinket',
         unconfirmed_remaining_minutes:UNCONFIRMED_OVERDUE_MINUTES-unconfirmedAge};
     }
     return item;
@@ -588,7 +608,8 @@ function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || '',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
-      planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,platform:c.platform,passing:Boolean(c.passing),
+      planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
+      active_until_time:isoClock(activeUntilIso(c,eventType)),platform:c.platform,passing:Boolean(c.passing),
       status:window.overdue?'Forsinket':smFallbackStatus(c,eventType),current_location:null,source:'Bane NOR SIRI SM',event_type:eventType});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
@@ -647,7 +668,8 @@ async function enrichSmItems(items, locationCode, eventType) {
     return {...item,
       time:isoClock(callIso(call,eventType)) || item.time,
       planned_time:display.planned || item.planned_time, expected_time:display.expected || item.expected_time,
-      actual_time:display.actual || item.actual_time, platform:call.platform || item.platform, passing:Boolean(call.passing || item.passing),
+      actual_time:display.actual || item.actual_time, active_until_time:isoClock(activeUntilIso(call,eventType)) || item.active_until_time,
+      platform:call.platform || item.platform, passing:Boolean(call.passing || item.passing),
       status:journeyCallStatus(journey,call,eventType), current_location:current?.name || null, source:'Bane NOR SIRI ET'};
   });
 }
