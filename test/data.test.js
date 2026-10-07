@@ -342,6 +342,35 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
   }
 });
 
+test('does not turn a SIRI departure-only call into a graph arrival', async () => {
+  const originalFetch=globalThis.fetch;
+  const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>104:2099-01-04</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedDepartureTime>2099-01-04T05:05:00+01:00</AimedDepartureTime></DatedCall><DatedCall><StopPointRef>OSL</StopPointRef><StopPointName>Oslo S</StopPointName><AimedArrivalTime>2099-01-04T06:45:00+01:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:2099-01-04:24:104:05:06:1',train_no:'104',line_number:24,origin_code:'HLD',destination_code:'OSL',
+    route:[{code:'HLD',time:'05:06',minute:306},{code:'OSL',time:'06:45',minute:405}],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path==='/locations.json') return new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+    if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const base={locationCode:'HLD',location:'Halden',date:'2099-01-04',today:'2099-01-01',fromTime:'05:00',toTime:'07:00'};
+    const arrivals=await queryTrains({...base,eventType:'arrival'});
+    const departures=await queryTrains({...base,eventType:'departure'});
+    assert.deepEqual(arrivals.items,[]);
+    assert.equal(departures.items.length,1);
+    assert.equal(departures.items[0].train_no,'104');
+    assert.equal(departures.items[0].time,'05:05');
+    assert.equal(departures.items[0].source,'Bane NOR SIRI PT');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
 test('uses the production timetable when historical ET is temporarily unavailable', async () => {
   const originalFetch=globalThis.fetch;
   const pt=`<Siri><ServiceDelivery><ProductionTimetableDelivery><ResponseTimestamp>2026-10-06T12:00:00+02:00</ResponseTimestamp><DatedTimetableVersionFrame><OperatorRef>CN</OperatorRef><LineRef>F1</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>123</DatedVehicleJourneyCode><DatedCalls><DatedCall><StopPointRef>OSL</StopPointRef><StopPointName>Oslo S</StopPointName><AimedArrivalTime>2026-10-06T12:00:00+02:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>`;

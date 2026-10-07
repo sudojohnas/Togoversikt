@@ -523,16 +523,20 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
   const possibleWorkTrains=response.possible_work_trains || [];
   // SIRI PT is the primary plan. A daily graph may add pass-through trains,
-  // but must never remove or relabel a journey supplied by SIRI.
+  // but must never turn a departure-only SIRI call into a guessed arrival (or
+  // vice versa) merely because the current board filters out the other event.
   const confirmed=items;
-  const plannedNumbers=new Set(items.map(item=>String(item.train_no)));
-  const missingNumbers=[...new Set(possibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!plannedNumbers.has(number)))];
+  const siriCallNumbers=new Set(plan.journeys.filter(journey=>{
+    const call=selectedCall(journey,locationCode);
+    return call && [call.aimed_arrival_iso,call.aimed_departure_iso,call.planned_iso].some(value=>isoDate(value)===date);
+  }).map(journey=>String(journey.train_no)));
+  const missingNumbers=[...new Set(possibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!siriCallNumbers.has(number)))];
   let metadataPlan={journeys:[]};
   if(missingNumbers.length) {
     try { metadataPlan=await getPlan(date,locationCode,false,missingNumbers); } catch {}
   }
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
-  const graphOnly=possibleWorkTrains.filter(train=>!plannedNumbers.has(String(train.train_no))).flatMap(train=>{
+  const graphOnly=possibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
     const metadata=metadataJourneyForTrain(metadataPlan.journeys,train.train_no,date);
