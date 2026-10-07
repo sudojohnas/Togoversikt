@@ -182,6 +182,13 @@ test('merges different source ids for the same train number and trusts the live 
   ]);
 });
 
+test('keeps SIRI live data authoritative over Togkart', () => {
+  const planned={journey_id:'123:2026-10-07',train_no:'123',time:'12:00',status:'Planlagt',source:'Bane NOR SIRI PT'};
+  const siri={...planned,time:'12:07',status:'Forsinket +7 min',source:'Bane NOR SIRI SM'};
+  const togkart={...planned,time:'12:05',status:'I rute',source:'Bane NOR Togkart'};
+  assert.deepEqual(mergeLiveItems([planned],[siri],[togkart]),[{...siri,graph_fallback:false}]);
+});
+
 test('expires an old planned train when no live time was ever reported', () => {
   const stale={...baseCall,planned_iso:'2026-09-27T16:02:39+02:00',aimed_departure_iso:'2026-09-27T16:02:39+02:00'};
   assert.deepEqual(
@@ -302,7 +309,7 @@ test('uses the production timetable when historical ET is temporarily unavailabl
     if(path.startsWith('/api/et')) return new Response('utilgjengelig',{status:503});
     if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
     if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'OSL',lines:[1]});
-    if(path.startsWith('/api/daily-graphs')) return Response.json({detail:'utilgjengelig'},{status:503});
+    if(path.startsWith('/api/daily-graphs')) return Response.json({trains:[],possible_work_trains:[],graphs_loaded:1,graphs_expected:1});
     if(path.startsWith('/api/togkart')) return Response.json({detail:'utilgjengelig'},{status:503});
     throw new Error(`Uventet kall: ${path}`);
   };

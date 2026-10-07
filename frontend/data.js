@@ -388,7 +388,9 @@ export function mergeLiveItems(plannedItems=[], smItems=[], togkartItems=[]) {
     if(number && number!=='–') keyByTrainNumber.set(number,key);
   };
   for(const item of plannedItems) put(item);
-  for(const item of [...smItems,...togkartItems]) put(item,true);
+  // Togkart fills gaps, while SIRI SM/ET remains authoritative whenever both
+  // sources describe the same journey.
+  for(const item of [...togkartItems,...smItems]) put(item,true);
   return [...merged.values()];
 }
 
@@ -489,9 +491,13 @@ async function getDailyGraphs(date, locationCode, trains) {
   const lineParams=new URLSearchParams({location:locationCode});
   const manifest=await fetchJson(`/api/daily-graph-lines?${lineParams}`);
   const lines=Array.isArray(manifest.lines) ? manifest.lines : [];
-  const parts=2;
-  const requests=lines.flatMap(line=>Array.from({length:parts},(_,index)=>({line,part:index+1})));
-  const responses=await Promise.all(requests.map(async ({line,part})=>{
+  // Oslo S–Drammen is the one graph large enough to exceed a Worker's memory
+  // budget. One PDF page per request keeps nationwide graph coverage reliable.
+  const requests=lines.flatMap(line=>{
+    const parts=Number(line)===6?12:2;
+    return Array.from({length:parts},(_,index)=>({line,part:index+1,parts}));
+  });
+  const responses=await Promise.all(requests.map(async ({line,part,parts})=>{
     const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line),part:String(part),parts:String(parts)});
     for(let attempt=0;attempt<3;attempt++) {
       try { return await fetchJson(`/api/daily-graphs?${p}`); }
@@ -506,15 +512,10 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
   const response=await getDailyGraphs(date,locationCode,trains);
   if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
-  const found=new Set((response.trains || []).map(String));
   const possibleWorkTrains=response.possible_work_trains || [];
-  const possibleByNumber=new Map(possibleWorkTrains.map(train=>[String(train.train_no),train]));
-  const confirmed=items.filter(item=>found.has(String(item.train_no))).map(item=>{
-    const possible=possibleByNumber.get(String(item.train_no));
-    return {...item,category:possible?.work_hint?'Mulig arbeidstog':item.category,
-      graph_fallback:true,source:'Bane NOR rutegraf',
-      graph_url:possible?dailyGraphUrl(date,possible.line_number):null};
-  });
+  // SIRI PT is the primary plan. A daily graph may add pass-through trains,
+  // but must never remove or relabel a journey supplied by SIRI.
+  const confirmed=items;
   const plannedNumbers=new Set(items.map(item=>String(item.train_no)));
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
   const graphOnly=possibleWorkTrains.filter(train=>!plannedNumbers.has(String(train.train_no))).flatMap(train=>{
@@ -661,7 +662,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       if(liveResult) {
         const items=mergeLiveItems(graphResult.items,etItems,liveResult.items)
           .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
-        return {items,operational_notices:graphResult.operational_notices,source_time:liveResult.live.source_time || et?.source_time || null,mode:'live',location,location_code:locationCode,date};
+        return {items,operational_notices:graphResult.operational_notices,source_time:et?.source_time || liveResult.live.source_time || null,mode:'live',location,location_code:locationCode,date};
       }
       return {items:mergeLiveItems(graphResult.items,etItems),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
     }
@@ -686,7 +687,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     if(graphResult.items.length || smItems.length || liveItems.length) {
       const items=filterLiveItems(mergeLiveItems(graphResult.items,smItems,liveItems),fromTime,toTime,!strictStart)
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
-      return {items,operational_notices:graphResult.operational_notices,source_time:liveTime || smTime,mode:'live',location,location_code:locationCode,date};
+      return {items,operational_notices:graphResult.operational_notices,source_time:smTime || liveTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt();
     const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),fromTime,toTime,!strictStart);

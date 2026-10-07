@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
+import { extractDailyGraphData, graphPageLayout, graphResponseVersion, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
 
 test('builds the public Bane NOR daily graph URL', () => {
   const url=new URL(graphUrl('2026-09-28',11));
@@ -41,4 +41,13 @@ test('does not attach an unrelated train number to a graph path', () => {
   assert.equal(matchGraphPathLabel({x:198,y:890},segment,[
     {train_no:'999',x:600,y:200,vx:8,vy:-3},
   ]),null);
+});
+
+test('supports both portrait and landscape A3 graph coordinates', () => {
+  assert.deepEqual(graphPageLayout([0,0,842,1191]),{
+    width:842,height:1191,stationXMin:782,hourYMin:1111,hourXMin:100,hourXMax:752,
+  });
+  assert.deepEqual(graphPageLayout([0,0,1191,842]),{
+    width:1191,height:842,stationXMin:1131,hourYMin:762,hourXMin:100,hourXMax:1101,
+  });
 });

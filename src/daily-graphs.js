@@ -146,18 +146,26 @@ function pathCrossingOccurrences(segments, labels, stations, hours, page, line) 
   return occurrences;
 }
 
+export function graphPageLayout(view) {
+  const width=Number(view?.[2])-Number(view?.[0]);
+  const height=Number(view?.[3])-Number(view?.[1]);
+  return {width,height,stationXMin:width-60,hourYMin:height-80,hourXMin:100,hourXMax:width-90};
+}
+
 async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStationCodes=[], sectionStationCodes=[]) {
   const {OPS}=await getResolvedPDFJS();
   const known=new Set(knownStationCodes), sectionStations=new Set(sectionStationCodes), occurrences=[], sectionLabels=[];
 
   for(const {pageNumber,pageItems} of pages) {
     const pageIndex=pageNumber-1;
+    const page=await pdf.getPage(pageIndex+1);
+    const layout=graphPageLayout(page.view);
     const stations=pageItems
       .map(item=>({code:String(item.str || '').trim().toUpperCase(),x:Number(item.x),y:Number(item.y)}))
-      .filter(item=>item.x>=785 && known.has(item.code));
+      .filter(item=>item.x>=layout.stationXMin && known.has(item.code));
     const hours=pageItems
       .map(item=>({raw:String(item.str || '').trim(),x:Number(item.x),y:Number(item.y)}))
-      .filter(item=>item.y>1100 && item.x>=100 && item.x<=750 && /^\d{1,2}$/.test(item.raw))
+      .filter(item=>item.y>layout.hourYMin && item.x>=layout.hourXMin && item.x<=layout.hourXMax && /^\d{1,2}$/.test(item.raw))
       .map(item=>({hour:Number(item.raw),x:item.x})).sort((a,b)=>a.x-b.x);
     if(!stations.length || hours.length<2) continue;
 
@@ -166,7 +174,7 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       vx:Number(item.transform?.[0]),vy:Number(item.transform?.[1]),
     })).filter(item=>/^\d{3,6}$/.test(item.train_no) && Number.isFinite(item.vx) && Number.isFinite(item.vy) && Math.abs(item.vy)>0.05);
 
-    const page=await pdf.getPage(pageIndex+1), operators=await page.getOperatorList();
+    const operators=await page.getOperatorList();
     let state={fill:'',stroke:'',matrix:[1,0,0,1,0,0]}, stack=[], text=null;
     for(let i=0;i<operators.fnArray.length;i++) {
       const fn=operators.fnArray[i], args=operators.argsArray[i];

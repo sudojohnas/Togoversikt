@@ -9,7 +9,7 @@ const TOGKART = 'https://api.togkart-prod.geodataonline.no/api/fares/getongoing'
 const GRAPH_CHECK_INTERVAL_MS = 15 * 60 * 1000;
 const GRAPH_CACHE_SECONDS = 31 * 24 * 60 * 60;
 const MAX_WORK_GRAPH_BYTES = 350 * 1024;
-const GRAPH_PARSER_VERSION = 'v4';
+const GRAPH_PARSER_VERSION = 'v5';
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjon').map(location=>location.code);
 
@@ -141,7 +141,8 @@ async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
   // A few unusually large graph sheets exceed the Worker's memory budget when
   // PDF drawing operators are expanded. Keep ordinary graph confirmation for
   // those sheets, but never let them take down results from the other lines.
-  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),pdf.byteLength<=MAX_WORK_GRAPH_BYTES,part,parts,SECTION_STATION_CODES);
+  const parseTrainPaths=pdf.byteLength<=MAX_WORK_GRAPH_BYTES || parts>=12;
+  const graphData=await extractDailyGraphData(pdf,date,line,Object.keys(STATION_GRAPH_LINES),parseTrainPaths,part,parts,SECTION_STATION_CODES);
   if(cached?.content_hash===contentHash) {
     const unchanged={...cached,possible_work_trains:graphData.possible_work_trains,
       operational_markers:graphData.operational_markers,operational_sections:graphData.operational_sections,
@@ -194,7 +195,7 @@ async function dailyGraphMatches(request, ctx, store) {
     return Response.json({detail:'Ugyldig rutegraflinje'},{status:400});
   }
   const parts=Number(url.searchParams.get('parts') || 1), part=Number(url.searchParams.get('part') || 1);
-  if(!Number.isInteger(parts) || parts<1 || parts>8 || !Number.isInteger(part) || part<1 || part>parts) {
+  if(!Number.isInteger(parts) || parts<1 || parts>16 || !Number.isInteger(part) || part<1 || part>parts) {
     return Response.json({detail:'Ugyldig grafdel'},{status:400});
   }
   const data=await dailyGraphNumbers(date,locationCode,ctx,store,requestedLine,part,parts);
