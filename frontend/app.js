@@ -308,7 +308,7 @@ async function loadRouteGraphs(requestId) {
       ? 'Åpnes hos Bane NOR i en ny fane.'
       : `${graphs.length} rutegrafer dekker valgt sted · åpnes hos Bane NOR i en ny fane.`;
     const links=graphs.map(graph=>
-      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(graph.name)}</span><small>Rutegraf ${esc(graph.line)} · Bane NOR · ny fane <span class="external-link-icon" aria-hidden="true"></span></small></a>`
+      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(graph.name)}</span><small>Rutegraf ${esc(graph.line)}</small></a>`
     ).join('');
     $('route-graph-links').innerHTML=graphs.length>3
       ? `<details class="route-graph-picker"><summary><span class="route-graph-picker-copy"><strong>Velg rutegraf fra Bane NOR</strong><small>Åpnes i ny fane</small></span><span class="route-graph-count">${graphs.length}</span><span class="route-graph-chevron" aria-hidden="true"></span></summary><div class="route-graph-menu">${links}</div></details>`
