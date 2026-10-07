@@ -347,8 +347,8 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
     const status=String(item.status || '').toLowerCase();
-    if(status.includes('passert') || status.includes('ankommet')) return false;
     if(item.time>=fromTime) return true;
+    if(status.includes('passert') || status.includes('ankommet')) return false;
     if(!includeEarlier) return false;
     // Keep upcoming cancellations on the board, but remove them once their
     // scheduled time has passed just like other completed calls.
