@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDailyGraphData, graphPageLayout, graphResponseVersion, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
+import { extractDailyGraphData, graphPageLayout, graphResponseVersion, graphStrokeHints, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
 
 test('builds the public Bane NOR daily graph URL', () => {
   const url=new URL(graphUrl('2026-09-28',11));
@@ -50,4 +50,9 @@ test('supports both portrait and landscape A3 graph coordinates', () => {
   assert.deepEqual(graphPageLayout([0,0,1191,842]),{
     width:1191,height:842,stationXMin:1131,hourYMin:762,hourXMin:100,hourXMax:1101,
   });
+});
+
+test('treats a yellow graph path as cancelled', () => {
+  assert.deepEqual(graphStrokeHints('#fed349','102'),{work_hint:false,cancelled_hint:true});
+  assert.deepEqual(graphStrokeHints('#0000ff','54702'),{work_hint:true,cancelled_hint:false});
 });

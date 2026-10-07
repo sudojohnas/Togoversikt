@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -424,6 +424,35 @@ test('labels blue graph trains as Bane NOR ordered and other unknown graph train
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('does not add graph trains marked yellow as cancelled', async () => {
+  const originalFetch=globalThis.fetch;
+  const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:yellow',train_no:'102',line_number:24,origin_code:'HLD',destination_code:'OSL',cancelled_hint:true,
+    route:[{code:'KAM',time:'05:13',minute:313}],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path==='/locations.json') return new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+    if(path.startsWith('/api/pt')) return new Response(emptyPt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'KAM',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'KAM',location:'Kambo',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
+    assert.deepEqual(result.items,[]);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
+test('recognizes a cancelled SIRI journey only on the matching date', () => {
+  const journeys=[{journey_id:'102:2026-10-08',train_no:'102',cancelled:true,route:[]}];
+  assert.deepEqual([...cancelledTrainNumbersForDate(journeys,['102'],'2026-10-08')],['102']);
+  assert.deepEqual([...cancelledTrainNumbersForDate(journeys,['102'],'2026-10-09')],[]);
 });
 
 test('does not turn a SIRI departure-only call into a graph arrival', async () => {

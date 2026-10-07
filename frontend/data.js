@@ -216,7 +216,8 @@ function parseEt(xml) {
     journeys.push({journey_id:id || `${trainNo}:${route[0]?.planned_iso || ''}`,train_no:trainNo,line:elem?.LineRef || '',
       operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || '',category:category(feature,product,operator),
       origin:elem?.OriginName || route[0].name,destination:elem?.DestinationName || route.at(-1).name,direction_ref:elem?.DirectionRef || '',
-      product,feature,route,source:'Bane NOR SIRI ET'});
+      product,feature,route,cancelled:String(elem?.Cancellation || '').toLowerCase()==='true' || route.every(call=>call.status_raw==='cancelled'),
+      source:'Bane NOR SIRI ET'});
   }
   return {journeys,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
 }
@@ -477,6 +478,12 @@ export function metadataJourneyForTrain(journeys=[], trainNo, date) {
   return matches.find(journey=>String(journey.journey_id || '').endsWith(`:${date}`)) ||
     matches.find(journey=>journey.route?.some(call=>isoDate(call.planned_iso)===date)) || matches[0] || null;
 }
+export function cancelledTrainNumbersForDate(journeys=[], trainNumbers=[], date) {
+  const requested=new Set(trainNumbers.map(String));
+  return new Set(journeys.filter(journey=>requested.has(String(journey.train_no)) && (
+    String(journey.journey_id || '').endsWith(`:${date}`) || journey.route?.some(call=>isoDate(call.planned_iso)===date)
+  ) && (journey.cancelled || journey.route?.every(call=>call.status_raw==='cancelled'))).map(journey=>String(journey.train_no)));
+}
 export function mergeDailyGraphResponses(responses=[], expected=responses.length) {
   const loaded=responses.filter(Boolean);
   const possible=[...new Map(loaded.flatMap(response=>response.possible_work_trains || [])
@@ -579,7 +586,7 @@ async function getDailyGraphs(date, locationCode, trains) {
   }));
   return mergeDailyGraphResponses(responses,requests.length);
 }
-async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType) {
+async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType, today) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
   const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
   const response=await getDailyGraphs(date,locationCode,trains);
@@ -598,8 +605,13 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   if(missingNumbers.length) {
     try { metadataPlan=await getPlan(date,locationCode,false,missingNumbers); } catch {}
   }
+  let cancelledNumbers=new Set();
+  if(missingNumbers.length && (date===today || date===addDays(today,1))) {
+    try { cancelledNumbers=cancelledTrainNumbersForDate((await getLiveEt()).journeys,missingNumbers,date); } catch {}
+  }
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
-  const graphOnly=possibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no))).flatMap(train=>{
+  const graphOnly=possibleWorkTrains.filter(train=>!train.cancelled_hint && !siriCallNumbers.has(String(train.train_no)) &&
+    !cancelledNumbers.has(String(train.train_no))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
     const metadata=metadataJourneyForTrain(metadataPlan.journeys,train.train_no,date);
@@ -619,10 +631,10 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   return {items:[...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
     operational_notices:buildGraphOperationalNotices(response,date,locationCode,locationItems),source_time:plan.source_time};
 }
-async function getGraphItems(locationCode,date,fromTime,toTime,eventType) {
+async function getGraphItems(locationCode,date,fromTime,toTime,eventType,today) {
   let plan={journeys:[],source_time:null};
   try { plan=await getPlan(date,locationCode); } catch {}
-  try { return await graphFallbackItems(plan,locationCode,date,fromTime,toTime,eventType); }
+  try { return await graphFallbackItems(plan,locationCode,date,fromTime,toTime,eventType,today); }
   catch { return {items:queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType),operational_notices:[],source_time:plan.source_time}; }
 }
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false, eventType='arrival') {
@@ -740,7 +752,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     if(historical) {
       const [et,graphResult,liveResult]=await Promise.all([
         (async()=>{ try { return await getLiveEt(); } catch { return null; } })(),
-        getGraphItems(locationCode,date,fromTime,toTime,eventType),
+        getGraphItems(locationCode,date,fromTime,toTime,eventType,today),
         (async()=>{ try {
           const live=await getTogkart();
           return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType))};
@@ -759,7 +771,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const span=Math.max(1,minutes(toTime)-smStartMinutes);
     const p=new URLSearchParams({MonitoringRef:locationCode,StartTime:zonedIso(date,smStart),PreviewInterval:`PT${span}M`,MaximumStopVisits:'2000'});
     const [graphResult,smResult,liveResult]=await Promise.all([
-      getGraphItems(locationCode,date,fromTime,toTime,eventType),
+      getGraphItems(locationCode,date,fromTime,toTime,eventType,today),
       (async()=>{ try {
         const sm=parseSm(await fetchText(`/api/sm?${p}`),locationCode,date,fromTime,toTime,!strictStart,eventType);
         return sm.unsupported ? {items:[],time:null} : {items:await enrichSmItems(sm.items,locationCode,eventType),time:sm.source_time};
@@ -781,7 +793,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),fromTime,toTime,!strictStart);
     return {items,operational_notices:graphResult.operational_notices,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
-  const graphResult=await getGraphItems(locationCode,date,fromTime,toTime,eventType);
+  const graphResult=await getGraphItems(locationCode,date,fromTime,toTime,eventType,today);
   if(date===addDays(today,1)) {
     let et=null;
     try { et=await getLiveEt(); } catch {}

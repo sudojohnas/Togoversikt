@@ -119,6 +119,14 @@ function graphPathSegments(operators, OPS, initialState) {
   return segments;
 }
 
+export function graphStrokeHints(stroke, trainNo='') {
+  const color=String(stroke || '').toLowerCase();
+  return {
+    work_hint:!['#000000','#010101'].includes(color) && String(trainNo).length>=4,
+    cancelled_hint:color==='#fed349',
+  };
+}
+
 function pathCrossingOccurrences(segments, labels, stations, hours, page, line) {
   const minX=hours[0].x-3, maxX=hours.at(-1).x+3;
   const minY=Math.min(...stations.map(station=>station.y))-3;
@@ -139,9 +147,9 @@ function pathCrossingOccurrences(segments, labels, stations, hours, page, line) 
     const label=matchGraphPathLabel({x,y:station.y},segment,labels);
     const hour=interpolateHour(x,hours), time=clockFromHour(hour);
     if(!label || !time) continue;
-    const coloredPath=!['#000000','#010101'].includes(segment.stroke);
+    const hints=graphStrokeHints(segment.stroke,label.train_no);
     occurrences.push({train_no:label.train_no,page,x,y:station.y,station_code:station.code,time,
-      minute:Math.round(hour*60),work_hint:coloredPath && label.train_no.length>=4,line_number:line});
+      minute:Math.round(hour*60),...hints,line_number:line});
   }
   return occurrences;
 }
@@ -242,11 +250,13 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       }])).values()];
       if(!route.length) continue;
       trains.push({journey_id:`graph:${date}:${line}:${trainNo}:${route[0].time}:${segmentIndex+1}`,train_no:trainNo,line_number:line,
-        origin_code:route[0].code,destination_code:route.at(-1).code,work_hint:segment.some(item=>item.work_hint),route});
+        origin_code:route[0].code,destination_code:route.at(-1).code,work_hint:segment.some(item=>item.work_hint),
+        cancelled_hint:segment.some(item=>item.cancelled_hint),route});
     }
   }
   return {trains,operational_markers:occurrences.map(item=>({
-    train_no:item.train_no,line_number:line,station_code:item.station_code,time:item.time,minute:item.minute,work_hint:item.work_hint,
+    train_no:item.train_no,line_number:line,station_code:item.station_code,time:item.time,minute:item.minute,
+    work_hint:item.work_hint,cancelled_hint:item.cancelled_hint,
   })),operational_sections:sectionLabels.map(item=>({...item,line_number:line}))};
 }
 
