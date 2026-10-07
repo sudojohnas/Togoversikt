@@ -1,5 +1,5 @@
 import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
-import { operationalNoticesForLocation, operationalNoticeGraphUrl } from './operational-notices.js';
+import { operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -50,7 +50,6 @@ function renderOperationalNotices() {
         <p class="operational-notice-time">${esc(noticeTime(notice.startsAt))} – ${esc(noticeTime(notice.endsAt))}</p>
         <p>${esc(notice.message)} <strong>Sjekk rutegrafen.</strong></p>
       </div>
-      <a href="${esc(operationalNoticeGraphUrl(notice))}" target="_blank" rel="noopener noreferrer">Åpne rutegraf ${esc(notice.graphLine)} <span aria-hidden="true">↗</span></a>
     </article>`).join('');
 }
 
