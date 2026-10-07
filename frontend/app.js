@@ -294,7 +294,7 @@ async function loadRouteGraphs(requestId) {
   const locationName=$('location').value.trim() || locationCode;
   if(!locationCode) { $('route-graphs').hidden=true; return; }
   $('route-graphs').hidden=false;
-  $('route-graphs-title').textContent=`Rutegrafer for ${locationName}`;
+  $('route-graphs-title').textContent=`Rutegrafer fra Bane NOR for ${locationName}`;
   $('route-graphs-description').textContent='Henter aktuelle strekninger …';
   $('route-graph-links').innerHTML='';
   try {
@@ -305,13 +305,13 @@ async function loadRouteGraphs(requestId) {
       return;
     }
     $('route-graphs-description').textContent=graphs.length===1
-      ? 'Åpne rutegrafen for strekningen som dekker valgt sted.'
-      : `${graphs.length} rutegrafer dekker valgt sted.`;
+      ? 'Åpnes hos Bane NOR i en ny fane.'
+      : `${graphs.length} rutegrafer dekker valgt sted · åpnes hos Bane NOR i en ny fane.`;
     const links=graphs.map(graph=>
-      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(graph.name)}</span><small>Rutegraf ${esc(graph.line)} <span aria-hidden="true">↗</span></small></a>`
+      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(graph.name)}</span><small>Rutegraf ${esc(graph.line)} · Bane NOR · ny fane <span class="external-link-icon" aria-hidden="true"></span></small></a>`
     ).join('');
     $('route-graph-links').innerHTML=graphs.length>3
-      ? `<details class="route-graph-picker"><summary>Velg rutegraf <span>${graphs.length}</span></summary><div class="route-graph-menu">${links}</div></details>`
+      ? `<details class="route-graph-picker"><summary><span class="route-graph-picker-copy"><strong>Velg rutegraf fra Bane NOR</strong><small>Åpnes i ny fane</small></span><span class="route-graph-count">${graphs.length}</span><span class="route-graph-chevron" aria-hidden="true"></span></summary><div class="route-graph-menu">${links}</div></details>`
       : links;
   } catch {
     if(requestId!==loadRequestId) return;
