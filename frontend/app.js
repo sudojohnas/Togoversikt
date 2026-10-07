@@ -181,7 +181,9 @@ function unconfirmedNote(x) {
 }
 
 function categoryLabel(value) {
-  return value === 'Persontog' ? 'Passasjertog' : (value || 'Ukjent');
+  if (value === 'Persontog') return 'Passasjertog';
+  if (!value || value === 'Ukjent') return 'Ukjente';
+  return value;
 }
 
 function trackKey(x) {
@@ -232,7 +234,7 @@ function updateFilterSummary() {
 }
 
 function renderFilterOptions() {
-  const alwaysCategories = ['Persontog', 'Godstog', 'Arbeidstog', 'Mulig arbeidstog'];
+  const alwaysCategories = ['Persontog', 'Godstog', 'Bane NOR-bestilt', 'Ukjent'];
   const cats = [...new Set([...alwaysCategories, ...lastTrainItems.map(x => x.category || 'Ukjent')])]
     .sort((a,b) => categoryLabel(a).localeCompare(categoryLabel(b), 'no'));
   const tracks = [...new Set(lastTrainItems.map(trackKey))].sort((a,b) => a.localeCompare(b, 'no', {numeric:true}));

@@ -118,10 +118,10 @@ function parseCall(call={}, state='planned') {
   };
 }
 function category(feature='', product='', operator='') {
-  if(operator==='BN') return 'Arbeidstog';
+  if(operator==='BN') return 'Bane NOR-bestilt';
   if(operator==='FLY') return 'Persontog';
   const f=String(feature).toLowerCase(), p=String(product).toUpperCase();
-  if(p==='A2') return 'Arbeidstog';
+  if(p==='A2') return 'Bane NOR-bestilt';
   if(f==='freighttrain' || f==='goodstrain') return 'Godstog';
   if(f==='passengertrain') return 'Persontog';
   if(p==='GMB') return 'Godstog';
@@ -235,9 +235,9 @@ function epochOsloIso(value) {
   return `${date}T${time}${offsetFor(date,`${parts.hour}:${parts.minute}`)}`;
 }
 function togkartCategory(fare) {
-  if(fare?.company==='BN') return 'Arbeidstog';
+  if(fare?.company==='BN') return 'Bane NOR-bestilt';
   const kind=String(fare?.train_kind || '').toUpperCase();
-  if(kind==='AT' || kind==='TRT') return 'Arbeidstog';
+  if(kind==='AT' || kind==='TRT') return 'Bane NOR-bestilt';
   if(kind==='GT' || kind==='EGT') return 'Godstog';
   if(kind==='PT' || kind==='EPT') return 'Persontog';
   return category('',fare?.train_type || '',fare?.company || '');
@@ -543,9 +543,9 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time}));
     const singlePoint=route.length===1;
     return [{journey_id:train.journey_id,train_no:String(train.train_no),line:metadata?.line || `Graf ${train.line_number}`,
-      category:metadata?.category && metadata.category!=='Ukjent'?metadata.category:train.work_hint?'Mulig arbeidstog':'Ukjent',
-      operator:metadata?.operator && metadata.operator!=='Ukjent'?metadata.operator:train.work_hint?'Bane NOR-bestilt':'Ikke oppgitt',
-      operator_code:metadata?.operator_code || (train.work_hint?'BN?':''),
+      category:metadata?.category && metadata.category!=='Ukjent'?metadata.category:train.work_hint?'Bane NOR-bestilt':'Ukjent',
+      operator:metadata?.operator && metadata.operator!=='Ukjent'?metadata.operator:'Ikke oppgitt',
+      operator_code:metadata?.operator_code || '',
       origin:metadata?.origin || (singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code),
       destination:metadata?.destination || (singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code),
       direction_ref:metadata?.direction_ref || (singlePoint?'':train.destination_code || ''),time:stop.time,

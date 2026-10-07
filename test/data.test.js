@@ -145,7 +145,7 @@ test('combines arrivals and departures while keeping one graph-only event', () =
 
 test('removes a graph-only guess when the other event has the same train number', () => {
   const arrival=[
-    {journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Mulig arbeidstog',graph_only:true},
+    {journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Bane NOR-bestilt',graph_only:true},
   ];
   const departure=[
     {journey_id:'8402:2026-10-02',train_no:'8402',time:'23:24',category:'Godstog'},
@@ -171,8 +171,8 @@ test('uses the daily plan as fallback for trains missing from live feeds', () =>
 
 test('merges different source ids for the same train number and trusts the live category', () => {
   const graph={
-    journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Mulig arbeidstog',
-    operator:'Bane NOR-bestilt',graph_only:true,graph_fallback:true,
+    journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Bane NOR-bestilt',
+    operator:'Ikke oppgitt',graph_only:true,graph_fallback:true,
   };
   const live={
     journey_id:'8402:2026-10-02',train_no:'8402',time:'23:24',category:'Godstog',operator:'CargoNet',
@@ -337,6 +337,32 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
       graph_route:[{code:'BG',name:'Berg',time:'12:00'},{code:'HLD',name:'Halden',time:'12:10'}],
       graph_url:dailyGraphUrl('2099-01-03',24),
     });
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
+test('labels blue graph trains as Bane NOR ordered and other unknown graph trains as unknown', async () => {
+  const originalFetch=globalThis.fetch;
+  const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[
+    {journey_id:'graph:blue',train_no:'9001',line_number:24,origin_code:'HLD',destination_code:'BG',work_hint:true,route:[{code:'HLD',time:'12:00',minute:720}]},
+    {journey_id:'graph:unknown',train_no:'9002',line_number:24,origin_code:'HLD',destination_code:'BG',work_hint:false,route:[{code:'HLD',time:'12:05',minute:725}]},
+  ]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path==='/locations.json') return new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+    if(path.startsWith('/api/pt')) return new Response(emptyPt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
+    assert.deepEqual(result.items.map(item=>[item.train_no,item.category,item.operator]),[
+      ['9001','Bane NOR-bestilt','Ikke oppgitt'],
+      ['9002','Ukjent','Ikke oppgitt'],
+    ]);
   } finally {
     globalThis.fetch=originalFetch;
   }
