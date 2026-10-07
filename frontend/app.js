@@ -45,7 +45,7 @@ function renderOperationalNotices() {
     <article class="operational-notice">
       <div class="operational-notice-mark" aria-hidden="true">!</div>
       <div class="operational-notice-copy">
-        <div class="kicker">OBS · Tog i sporet</div>
+        <div class="kicker">OBS</div>
         <h2>Tog ${esc(notice.trainNo)} · ${esc(notice.route)}</h2>
         <p class="operational-notice-time">${esc(noticeTime(notice.startsAt))} – ${esc(noticeTime(notice.endsAt))}</p>
         <p>${esc(notice.message)} <strong>Sjekk rutegrafen.</strong></p>
