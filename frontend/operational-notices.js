@@ -16,6 +16,10 @@ export function operationalNoticesForLocation(locationCode, now = new Date(), no
   );
 }
 
+export function mergeOperationalNotices(...noticeLists) {
+  return [...new Map(noticeLists.flat().filter(Boolean).map(notice => [notice.id, notice])).values()];
+}
+
 export function operationalNoticeGraphUrl(notice) {
   const url = new URL(DAILY_GRAPH_URL);
   url.searchParams.set('dateInput', notice.graphDate);

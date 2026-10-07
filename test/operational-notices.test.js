@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { activeOperationalNotices, operationalNoticesForLocation, operationalNoticeGraphUrl } from '../frontend/operational-notices.js';
+import { activeOperationalNotices, mergeOperationalNotices, operationalNoticesForLocation, operationalNoticeGraphUrl } from '../frontend/operational-notices.js';
 
 const notices=[{
   id:'graph:2026-10-06:24:54702:22:54',trainNo:'54702',route:'Halden–Berg',locationCodes:['HLD','BG'],
@@ -26,4 +26,10 @@ test('operational notice is shown only for Halden and Berg', () => {
   assert.equal(operationalNoticesForLocation('OSL', now,notices).length, 0);
   assert.equal(operationalNoticesForLocation('HLD', now,notices).length, 1);
   assert.equal(operationalNoticesForLocation('BG', now,notices).length, 1);
+});
+
+test('keeps and deduplicates notices across board fallbacks', () => {
+  const replacement={...notices[0],message:'Oppdatert melding'};
+  const other={...notices[0],id:'graph:other',trainNo:'999'};
+  assert.deepEqual(mergeOperationalNotices(notices,[replacement,other]),[replacement,other]);
 });

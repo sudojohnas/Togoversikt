@@ -1,5 +1,5 @@
 import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
-import { operationalNoticesForLocation } from './operational-notices.js';
+import { mergeOperationalNotices, operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const pad = n => String(n).padStart(2, '0');
@@ -310,7 +310,7 @@ async function loadRouteGraphs(requestId) {
   }
 }
 
-async function loadTrains(allowModeFallback=true,allowDateFallback=true) {
+async function loadTrains(allowModeFallback=true,allowDateFallback=true,carriedOperationalNotices=[]) {
   const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
@@ -328,11 +328,13 @@ async function loadTrains(allowModeFallback=true,allowDateFallback=true) {
   try {
     let d = await queryTrains(currentTrainQuery());
     if (requestId !== loadRequestId) return;
+    d.operational_notices = mergeOperationalNotices(carriedOperationalNotices,d.operational_notices || []);
     if (allowModeFallback && boardMode !== 'both' && !boardModeManuallySelected && !(d.items || []).length) {
       const fallbackMode = boardMode === 'arrival' ? 'departure' : 'arrival';
       try {
         const fallback = await queryTrains({...currentTrainQuery(), eventType:fallbackMode});
         if (requestId !== loadRequestId) return;
+        fallback.operational_notices = mergeOperationalNotices(d.operational_notices || [],fallback.operational_notices || []);
         if ((fallback.items || []).length) {
           boardMode = fallbackMode;
           updateBoardModeControls();
@@ -348,7 +350,7 @@ async function loadTrains(allowModeFallback=true,allowDateFallback=true) {
       $('from').value = '00:00';
       autoFromNow = false;
       syncPickerButtons();
-      return loadTrains(false,false);
+      return loadTrains(false,false,d.operational_notices || []);
     }
     applyTrainData(d);
   } catch (e) {
