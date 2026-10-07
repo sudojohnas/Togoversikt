@@ -157,7 +157,8 @@ async function updateSuggestions() {
 }
 function timeCell(x) {
   const delayed = String(x.status || '').toLowerCase().includes('forsinket');
-  const event = boardMode === 'both' ? `<small class="event-kind ${esc(x.event_type || '')}">${x.event_type==='departure'?'Avgang':x.event_type==='arrival'?'Ankomst':'Rutegraf'}</small>` : '';
+  const eventType = x.event_type === 'arrival' ? 'arrival' : 'departure';
+  const event = boardMode === 'both' ? `<small class="event-kind ${eventType}">${eventType === 'arrival' ? 'Ankomst' : 'Avgang'}</small>` : '';
   if (String(x.status || '').includes('Innstilt')) return `<span class="main-time cancelled-time">${esc(x.planned_time || x.time)}</span>${event}`;
   const sub = delayed && x.planned_time ? `<small>Planlagt ${esc(x.planned_time)}</small>` : '';
   return `<span class="main-time">${esc(x.time)}</span>${event}${sub}`;
