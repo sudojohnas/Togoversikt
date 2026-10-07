@@ -7,12 +7,6 @@ const osloDateFmt = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year
 const osloTimeFmt = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
 const localDate = d => osloDateFmt.format(d);
 const localTime = d => osloTimeFmt.format(d);
-const nextDate = value => {
-  const date = new Date(`${value}T12:00:00Z`);
-  date.setUTCDate(date.getUTCDate()+1);
-  return date.toISOString().slice(0,10);
-};
-
 let searchTimer = null;
 let suggestions = [];
 let activeSuggestion = -1;
@@ -313,7 +307,7 @@ async function loadRouteGraphs(requestId) {
   }
 }
 
-async function loadTrains(allowModeFallback=true,allowDateFallback=true,carriedOperationalNotices=[]) {
+async function loadTrains(allowModeFallback=true) {
   const requestId = ++loadRequestId;
   if (autoFromNow && $('date').value === localDate(new Date())) {
     $('from').value = localTime(new Date());
@@ -331,7 +325,6 @@ async function loadTrains(allowModeFallback=true,allowDateFallback=true,carriedO
   try {
     let d = await queryTrains(currentTrainQuery());
     if (requestId !== loadRequestId) return;
-    d.operational_notices = mergeOperationalNotices(carriedOperationalNotices,d.operational_notices || []);
     if (allowModeFallback && boardMode !== 'both' && !boardModeManuallySelected && !(d.items || []).length) {
       const fallbackMode = boardMode === 'arrival' ? 'departure' : 'arrival';
       try {
@@ -348,13 +341,6 @@ async function loadTrains(allowModeFallback=true,allowDateFallback=true,carriedO
       }
     }
     if (requestId !== loadRequestId) return;
-    if (allowDateFallback && autoFromNow && $('date').value === localDate(new Date()) && !(d.items || []).length) {
-      $('date').value = nextDate($('date').value);
-      $('from').value = '00:00';
-      autoFromNow = false;
-      syncPickerButtons();
-      return loadTrains(false,false,d.operational_notices || []);
-    }
     applyTrainData(d);
   } catch (e) {
     if (requestId !== loadRequestId) return;
