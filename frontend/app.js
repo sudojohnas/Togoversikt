@@ -301,9 +301,12 @@ async function loadRouteGraphs(requestId) {
     $('route-graphs-description').textContent=graphs.length===1
       ? 'Åpne rutegrafen for strekningen som dekker valgt sted.'
       : `${graphs.length} rutegrafer dekker valgt sted.`;
-    $('route-graph-links').innerHTML=graphs.map(graph=>
-      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer">Rutegraf ${esc(graph.line)} <span aria-hidden="true">↗</span></a>`
+    const links=graphs.map(graph=>
+      `<a href="${esc(graph.url)}" target="_blank" rel="noopener noreferrer"><span>${esc(graph.name)}</span><small>Rutegraf ${esc(graph.line)} <span aria-hidden="true">↗</span></small></a>`
     ).join('');
+    $('route-graph-links').innerHTML=graphs.length>3
+      ? `<details class="route-graph-picker"><summary>Velg rutegraf <span>${graphs.length}</span></summary><div class="route-graph-menu">${links}</div></details>`
+      : links;
   } catch {
     if(requestId!==loadRequestId) return;
     $('route-graphs-description').textContent='Kunne ikke hente aktuelle rutegrafer.';

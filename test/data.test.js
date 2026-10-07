@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -537,4 +537,22 @@ test('builds a date-specific Bane NOR graph link for the selected route', () => 
   const url=new URL(dailyGraphUrl('2026-10-06',24));
   assert.equal(url.searchParams.get('dateInput'),'2026-10-06');
   assert.equal(url.searchParams.get('selectLine'),'24');
+});
+
+test('adds the official route name to station graph links', async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>{
+    assert.equal(String(url),'/api/daily-graph-lines?location=OSL');
+    return Response.json({location:'OSL',lines:[1,6,24]});
+  };
+  try {
+    const graphs=await routeGraphsForLocation('osl','2026-10-07');
+    assert.deepEqual(graphs.map(graph=>({line:graph.line,name:graph.name})),[
+      {line:1,name:'Lillestrøm–Charlottenberg'},
+      {line:6,name:'Oslo S–Drammen'},
+      {line:24,name:'Skøyen–Oslo S–Kornsjø (V.L)'},
+    ]);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });

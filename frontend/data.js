@@ -15,6 +15,15 @@ const arr = value => value == null ? [] : Array.isArray(value) ? value : [value]
 const LIVE_LOOKBACK_MINUTES = 360;
 const UNCONFIRMED_OVERDUE_MINUTES = 30;
 const DAILY_GRAPH_URL = 'https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/';
+export const DAILY_GRAPH_NAMES = {
+  1:'Lillestrøm–Charlottenberg', 2:'Kongsvinger–Elverum', 3:'Skøyen–Oslo S–Gjøvik', 4:'Myrdal–Flåm',
+  5:'Hønefoss–Bergen', 6:'Oslo S–Drammen', 7:'Skøyen–Oslo S–Eidsvoll', 8:'Eidsvoll–Dombås',
+  9:'Trondheim–Dombås', 10:'Dombås–Åndalsnes', 11:'Støren–Tynset–Hamar', 12:'Grong–Trondheim S',
+  13:'Bodø–Grong', 14:'Ofotbanen', 15:'Drammen–Neslandsvatn', 16:'Nordagutu–Kristiansand',
+  17:'Kristiansand–Stavanger', 18:'Hokksund–Hønefoss', 19:'Drammen–Larvik–Nordagutu', 20:'Arendal–Nelaug',
+  21:'Gardermobanen', 22:'Kongsberg skifteområde IV og Hønefoss skifteområde VII', 23:'Oslo S–Sarpsborg',
+  24:'Skøyen–Oslo S–Kornsjø (V.L)', 25:'Vestby–Oslo S–Høvik',
+};
 let locationsPromise = null;
 let liveEtCache = null;
 let togkartCache = null;
@@ -31,7 +40,7 @@ export function dailyGraphUrl(date,line) {
 export async function routeGraphsForLocation(locationCode,date) {
   const p=new URLSearchParams({location:String(locationCode || '').toUpperCase()});
   const response=await fetchJson(`/api/daily-graph-lines?${p}`);
-  return (response.lines || []).map(line=>({line:Number(line),url:dailyGraphUrl(date,line)}));
+  return (response.lines || []).map(line=>({line:Number(line),name:DAILY_GRAPH_NAMES[Number(line)] || `Rutegraf ${line}`,url:dailyGraphUrl(date,line)}));
 }
 
 function searchKey(value='') {
