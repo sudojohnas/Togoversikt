@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -56,6 +56,36 @@ test('marks an early actual arrival at the destination as arrived even when SIRI
   };
   assert.equal(smFallbackStatus(call), 'Ankommet');
   assert.equal(journeyCallStatus({route:[call]}, call), 'Ankommet');
+});
+
+test('marks a recorded destination as arrived even without an explicit actual time', () => {
+  const destination={
+    ...baseCall,state:'recorded',aimed_departure_iso:'',
+    planned_iso:'2026-09-27T12:56:00+02:00',aimed_arrival_iso:'2026-09-27T12:56:00+02:00',
+  };
+  assert.equal(journeyCallStatus({route:[destination]},destination),'Ankommet');
+});
+
+test('uses Togkart final-stop position as arrival evidence without inventing an arrival time', async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>String(url)==='/locations.json'
+    ? new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'))
+    : originalFetch(url);
+  try {
+    const data=await parseTogkart({Fares:[{
+      train_no:1,train_id:'1:2026-09-27',destination:'OSL',stopindex:1,
+      stops:[
+        {city:'STB',std:Date.parse('2026-09-27T12:00:00+02:00')/1000,atd:Date.parse('2026-09-27T12:01:00+02:00')/1000},
+        {city:'OSL',sta:Date.parse('2026-09-27T12:20:00+02:00')/1000,eta:Date.parse('2026-09-27T12:22:00+02:00')/1000},
+      ],
+    }]});
+    const journey=data.journeys[0], destination=journey.route.at(-1);
+    assert.equal(destination.actual_arrival_iso,'');
+    assert.equal(destination.reached,true);
+    assert.equal(journeyCallStatus(journey,destination),'Ankommet');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });
 
 test('ignores a contradictory delayed flag when the expected time is early', () => {
@@ -230,9 +260,19 @@ test('keeps a passed train inside a manually selected window', () => {
   assert.equal(journeyCallStatus({route:[selected,later]},selected),'Passert');
   assert.deepEqual(
     filterLiveItems([{train_no:'41960',time:'17:04',status:'Passert'}],'17:00','23:59'),
-    [{train_no:'41960',time:'17:04',status:'Passert'}],
+    [{train_no:'41960',time:'17:04',status:'Passert',unconfirmed_remaining_minutes:null}],
   );
   assert.deepEqual(filterLiveItems([{train_no:'41960',time:'17:04',status:'Passert'}],'17:05','23:59'),[]);
+});
+
+test('removes stale no-information countdowns from completed calls', () => {
+  const completed=[
+    {train_no:'1',time:'17:04',status:'Ankommet',actual_time:null,unconfirmed_remaining_minutes:18},
+    {train_no:'2',time:'17:05',status:'Passert',actual_time:null,unconfirmed_remaining_minutes:17},
+  ];
+  assert.deepEqual(filterLiveItems(completed,'17:00','23:59').map(item=>[item.status,item.unconfirmed_remaining_minutes]),[
+    ['Ankommet',null],['Passert',null],
+  ]);
 });
 
 test('keeps separate arrival and departure times in train details', () => {

@@ -150,13 +150,16 @@ function delayStatus(call, eventType='auto') {
 function callHasDeparture(call) {
   return Boolean(call?.aimed_departure_iso || call?.expected_departure_iso || call?.actual_departure_iso);
 }
+function callIsRecorded(call) {
+  return call?.state==='recorded' || call?.reached===true;
+}
 function callHasPassed(call) {
   if(!call) return false;
   // At a stop with a scheduled departure, arrival alone must not count as passed.
   // This keeps a passenger train at the platform as active until it actually departs.
-  if(callHasDeparture(call)) return Boolean(call.actual_departure_iso);
+  if(callHasDeparture(call)) return Boolean(call.actual_departure_iso || callIsRecorded(call));
   // At the final stop there is no departure; actual arrival completes the call.
-  return Boolean(call.actual_arrival_iso || call.actual_iso);
+  return Boolean(call.actual_arrival_iso || call.actual_iso || callIsRecorded(call));
 }
 function journeyStarted(journey) {
   return Boolean(journey?.route?.some(call => call.state==='recorded' &&
@@ -171,7 +174,7 @@ function journeyHasPassedCall(journey, call) {
 }
 function passedStatus(journey, call) {
   const isDestination=journey?.route?.at(-1)===call;
-  return isDestination && Boolean(call?.actual_arrival_iso || call?.actual_iso) ? 'Ankommet' : 'Passert';
+  return isDestination && Boolean(call?.actual_arrival_iso || call?.actual_iso || callIsRecorded(call)) ? 'Ankommet' : 'Passert';
 }
 export function journeyCallStatus(journey, call, eventType='auto') {
   const delayed=delayStatus(call,eventType);
@@ -242,11 +245,13 @@ function togkartCategory(fare) {
   if(kind==='PT' || kind==='EPT') return 'Persontog';
   return category('',fare?.train_type || '',fare?.company || '');
 }
-async function parseTogkart(data) {
+export async function parseTogkart(data) {
   const locs=await locations(), names=new Map(locs.map(x=>[x.code,x.name]));
   const journeys=[];
   for(const fare of data?.Fares || []) {
-    const route=(fare.stops || []).map(stop=>{
+    const stops=fare.stops || [];
+    const currentIndex=Number(fare.stopindex);
+    const route=stops.map((stop,index)=>{
       const aimedArr=epochOsloIso(stop.sta), aimedDep=epochOsloIso(stop.std);
       const expectedArr=epochOsloIso(stop.eta), expectedDep=epochOsloIso(stop.etd);
       const actualArr=epochOsloIso(stop.ata), actualDep=epochOsloIso(stop.atd);
@@ -260,7 +265,10 @@ async function parseTogkart(data) {
         actual_arrival_iso:actualArr, actual_departure_iso:actualDep,
         planned:isoClock(planned), expected:isoClock(expected), actual:isoClock(actual),
         platform:String(stop.track ?? stop.planned_track ?? ''), passing:String(stop.activity || '').toUpperCase()==='P',
-        status_raw:cancelled?'cancelled':'', state:(actualArr || actualDep)?'recorded':'estimated', activity:stop.activity || ''
+        status_raw:cancelled?'cancelled':'',
+        state:(actualArr || actualDep || (Number.isInteger(currentIndex) && index===stops.length-1 && currentIndex>=index))?'recorded':'estimated',
+        reached:Number.isInteger(currentIndex) && index===stops.length-1 && currentIndex>=index,
+        activity:stop.activity || ''
       };
     });
     if(!route.length) continue;
@@ -331,7 +339,8 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
     const baseStatus=journeyCallStatus(journey,call,eventType);
     const display=callDisplayTimes(call,eventType);
     const unconfirmedAge=minutes(fromTime)-minutes(clock);
-    const unconfirmedRemaining=!display.actual && unconfirmedAge>0 && unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES?
+    const terminal=['Passert','Ankommet','Innstilt'].some(value=>String(baseStatus).includes(value));
+    const unconfirmedRemaining=!terminal && !display.actual && unconfirmedAge>0 && unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES?
       UNCONFIRMED_OVERDUE_MINUTES-unconfirmedAge:null;
     items.push({journey_id:journey.journey_id,train_no:journey.train_no,line:journey.line,category:journey.category,
       operator:journey.operator,operator_code:journey.operator_code,origin:journey.origin,destination:journey.destination,
@@ -357,6 +366,9 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
     return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
     const status=String(item.status || '').toLowerCase();
+    if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) {
+      return {...item,unconfirmed_remaining_minutes:null};
+    }
     if(item.time<fromTime && !item.actual_time) {
       const unconfirmedAge=minutes(fromTime)-minutes(item.time);
       return {...item,status:status.includes('forsinket')?item.status:'Forsinket',
