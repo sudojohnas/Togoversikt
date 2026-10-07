@@ -202,7 +202,7 @@ test('uses the daily plan as fallback for trains missing from live feeds', () =>
 test('merges different source ids for the same train number and trusts the live category', () => {
   const graph={
     journey_id:'graph:2026-10-02:1:8402:1',train_no:'8402',time:'23:21',category:'Bane NOR-bestilt',
-    operator:'Ikke oppgitt',graph_only:true,graph_fallback:true,
+    operator:'',graph_only:true,graph_fallback:true,
   };
   const live={
     journey_id:'8402:2026-10-02',train_no:'8402',time:'23:24',category:'Godstog',operator:'CargoNet',
@@ -400,8 +400,8 @@ test('labels blue graph trains as Bane NOR ordered and other unknown graph train
   try {
     const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
     assert.deepEqual(result.items.map(item=>[item.train_no,item.category,item.operator]),[
-      ['9001','Bane NOR-bestilt','Ikke oppgitt'],
-      ['9002','Ukjent','Ikke oppgitt'],
+      ['9001','Bane NOR-bestilt',''],
+      ['9002','Ukjent',''],
     ]);
   } finally {
     globalThis.fetch=originalFetch;

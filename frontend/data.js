@@ -205,7 +205,7 @@ function parseEt(xml) {
     if(!route.length) continue;
     const id=elem?.DatedVehicleJourneyRef || ''; const trainNo=elem?.VehicleRef || String(id).split(':')[0] || '–';
     journeys.push({journey_id:id || `${trainNo}:${route[0]?.planned_iso || ''}`,train_no:trainNo,line:elem?.LineRef || '',
-      operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',category:category(feature,product,operator),
+      operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || '',category:category(feature,product,operator),
       origin:elem?.OriginName || route[0].name,destination:elem?.DestinationName || route.at(-1).name,direction_ref:elem?.DirectionRef || '',
       product,feature,route,source:'Bane NOR SIRI ET'});
   }
@@ -220,7 +220,7 @@ function parsePt(xml) {
       const id=elem?.DatedVehicleJourneyCode || '–', trainNo=String(id).split(':')[0] || '–';
       const product=elem?.ProductCategoryRef || '', feature=elem?.ServiceFeatureRef || '';
       const route=arr(elem?.DatedCalls?.DatedCall).map(c=>parseCall(c,'planned')); if(!route.length) continue;
-      journeys.push({journey_id:id,train_no:trainNo,line,operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',
+      journeys.push({journey_id:id,train_no:trainNo,line,operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || '',
         category:category(feature,product,operator),origin:route[0].name,destination:route.at(-1).name,direction_ref:direction,
         product,feature,route,source:'Bane NOR SIRI PT'});
     }
@@ -276,7 +276,7 @@ export async function parseTogkart(data) {
     journeys.push({
       journey_id:fare.train_id || `${fare.train_no || '–'}:${isoDate(route[0]?.planned_iso || '')}`,
       train_no:String(fare.train_no ?? '–'), line:fare.line_no || '', operator_code:operator,
-      operator:fare.company_name || OPERATOR_NAMES[operator] || operator || 'Ukjent', category:togkartCategory(fare),
+      operator:fare.company_name || OPERATOR_NAMES[operator] || operator || '', category:togkartCategory(fare),
       origin:names.get(fare.origin) || fare.origin || route[0].name,
       destination:names.get(fare.destination) || fare.destination || route.at(-1).name,
       direction_ref:'', product:fare.train_type || '', feature:fare.train_kind || '', route,
@@ -556,7 +556,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     const singlePoint=route.length===1;
     return [{journey_id:train.journey_id,train_no:String(train.train_no),line:metadata?.line || `Graf ${train.line_number}`,
       category:metadata?.category && metadata.category!=='Ukjent'?metadata.category:train.work_hint?'Bane NOR-bestilt':'Ukjent',
-      operator:metadata?.operator && metadata.operator!=='Ukjent'?metadata.operator:'Ikke oppgitt',
+      operator:metadata?.operator && metadata.operator!=='Ukjent'?metadata.operator:'',
       operator_code:metadata?.operator_code || '',
       origin:metadata?.origin || (singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code),
       destination:metadata?.destination || (singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code),
@@ -586,7 +586,7 @@ function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false
     const id=j?.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || visit.ItemIdentifier || `${j.VehicleRef || '–'}:${date}`;
     const display=callDisplayTimes(c,eventType);
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
-      category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || 'Ukjent',operator_code:operator,
+      category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || '',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
       planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,platform:c.platform,passing:Boolean(c.passing),
       status:window.overdue?'Forsinket':smFallbackStatus(c,eventType),current_location:null,source:'Bane NOR SIRI SM',event_type:eventType});
@@ -754,7 +754,7 @@ export function detailFromJourney(journey, locationCode, sourceTime) {
 }
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   if(item?.graph_only) {
-    return {journey_id:item.journey_id,train_no:item.train_no,line:item.line,category:item.category || 'Ukjent',operator:item.operator || 'Ikke oppgitt',
+    return {journey_id:item.journey_id,train_no:item.train_no,line:item.line,category:item.category || 'Ukjent',operator:item.operator || '',
       origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
       source:item.source,source_url:item.graph_url || null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,

@@ -215,15 +215,18 @@ function renderTrainRows() {
     updateFilterSummary();
     return;
   }
-  $('rows').innerHTML = items.map(x => `<tr class="train-row ${rowClass(x)}" tabindex="0" data-id="${esc(trainItemKey(x))}">
+  $('rows').innerHTML = items.map(x => {
+    const operator=String(x.operator || '').trim();
+    return `<tr class="train-row ${rowClass(x)}" tabindex="0" data-id="${esc(trainItemKey(x))}">
     <td class="time time-cell">${timeCell(x)}</td>
     <td class="trainno train-cell">${esc(x.train_no)}${x.line && x.line !== '-' ? `<small>${esc(x.line)}</small>` : ''}</td>
     <td class="track-cell"><span class="track-value"><span class="track-label">Spor </span>${esc(x.platform || '–')}</span>${x.passing ? '<span class="passing-label">Passerende</span>' : ''}</td>
-    <td class="type-text type-cell">${esc(x.category)}<span class="mobile-operator"> · ${esc(x.operator)}</span></td>
-    <td class="operator-cell">${esc(x.operator)}</td>
+    <td class="type-text type-cell">${esc(x.category)}${operator ? `<span class="mobile-operator"> · ${esc(operator)}</span>` : ''}</td>
+    <td class="operator-cell">${esc(operator)}</td>
     <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}${unconfirmedNote(x)}</td>
     <td class="status-text status-cell">${statusCell(x)}</td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
   bindTrainRows();
   updateFilterSummary();
 }
@@ -407,7 +410,7 @@ async function openDetail(itemKey, force=false) {
     $('detail-content').innerHTML = `
       <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div><button id="detail-refresh" class="detail-refresh" type="button">Oppdater</button></div>
       <div class="detail-grid">
-        <div><span>Operatør</span><strong>${esc(x.operator)}</strong></div>
+        ${x.operator ? `<div><span>Operatør</span><strong>${esc(x.operator)}</strong></div>` : ''}
         <div><span>Status ved valgt punkt</span><strong>${x.passing ? 'Passerende · ' : ''}${esc(x.status)}</strong></div>
         ${x.passing ? '<div><span>Stopp ved valgt punkt</span><strong>Nei – passerer uten stopp</strong></div>' : ''}
         <div><span>Siste registrerte punkt</span><strong>${esc(x.current_location)}</strong></div>
