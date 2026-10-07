@@ -15,3 +15,16 @@ test('keeps only timetable journeys that visit the selected location', () => {
   assert.doesNotMatch(filtered,/2:2026-09-28/);
   assert.doesNotMatch(filtered,/<LineRef>L1<\/LineRef>/);
 });
+
+test('also keeps requested train metadata when the train passes between listed calls', () => {
+  const xml='<Siri><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef>'+
+    '<DatedVehicleJourney><DatedVehicleJourneyCode>125:2026-10-07</DatedVehicleJourneyCode><ProductCategoryRef>Rt</ProductCategoryRef>'+
+    '<DatedCall><StopPointRef>SBO</StopPointRef></DatedCall><DatedCall><StopPointRef>HLD</StopPointRef></DatedCall></DatedVehicleJourney>'+
+    '<DatedVehicleJourney><DatedVehicleJourneyCode>127:2026-10-07</DatedVehicleJourneyCode><DatedCall><StopPointRef>HLD</StopPointRef></DatedCall></DatedVehicleJourney>'+
+    '</DatedTimetableVersionFrame></Siri>';
+  const filtered=filterProductionTimetableXml(xml,'BG',['125']);
+  assert.match(filtered,/125:2026-10-07/);
+  assert.match(filtered,/<OperatorRef>VY<\/OperatorRef>/);
+  assert.match(filtered,/<ProductCategoryRef>Rt<\/ProductCategoryRef>/);
+  assert.doesNotMatch(filtered,/127:2026-10-07/);
+});

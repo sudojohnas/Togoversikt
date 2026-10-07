@@ -3,7 +3,8 @@ import { XMLParser } from 'fast-xml-parser';
 const OPERATOR_NAMES = {
   VY:'Vy', FLY:'Flytoget', VYT:'Vy Tåg', GAG:'Go-Ahead Nordic', SJN:'SJ Norge', SJ:'SJ',
   CN:'CargoNet', GR:'Grenland Rail', ONR:'OnRail', RCT:'Railcare', HER:'Hector Rail',
-  BLS:'BLS Rail', 'TÅB':'Tågåkeriet i Bergslagen', BN:'Bane NOR'
+  BLS:'BLS Rail', GC:'Green Cargo', KAU:'Kaunis Iron', MTA:'LKAB Malmtrafik', NJM:'Norsk Jernbanemuseum',
+  TM:'Arctic Train', TMG:'TM Togdrift', VYG:'Vy Gjøvikbanen', 'TÅB':'Tågåkeriet i Bergslagen', BN:'Bane NOR'
 };
 const parser = new XMLParser({
   removeNSPrefix:true, ignoreAttributes:true, parseTagValue:false, trimValues:true,
@@ -420,12 +421,20 @@ async function getFilteredEt(item, force=false) {
   if(item.line) p.set('Lines.LineDirection.LineRef',item.line); if(item.direction_ref) p.set('Lines.LineDirection.DirectionRef',item.direction_ref);
   const data=parseEt(await fetchText(`/api/et?${p}`)); filteredEtCache.set(key,{ts:Date.now(),data}); return data;
 }
-async function getPlan(date, locationCode, force=false) {
-  const key=`${date}|${locationCode}`;
+async function getPlan(date, locationCode, force=false, trainNumbers=[]) {
+  const requested=[...new Set(trainNumbers.map(String).filter(value=>/^\d{1,6}$/.test(value)))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const key=`${date}|${locationCode}|${requested.join(',')}`;
   const cached=planCache.get(key); if(!force && cached && Date.now()-cached.ts<600000) return cached.data;
   const p=new URLSearchParams({'ValidityPeriod.StartTime':zonedIso(addDays(date,-1),'16:00'),'ValidityPeriod.EndTime':zonedIso(addDays(date,1),'00:00')});
   p.set('StopPointRef',locationCode);
+  if(requested.length) p.set('TrainNumbers',requested.join(','));
   const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(key,{ts:Date.now(),data}); return data;
+}
+
+export function metadataJourneyForTrain(journeys=[], trainNo, date) {
+  const matches=journeys.filter(journey=>String(journey.train_no)===String(trainNo));
+  return matches.find(journey=>String(journey.journey_id || '').endsWith(`:${date}`)) ||
+    matches.find(journey=>journey.route?.some(call=>isoDate(call.planned_iso)===date)) || matches[0] || null;
 }
 export function mergeDailyGraphResponses(responses=[], expected=responses.length) {
   const loaded=responses.filter(Boolean);
@@ -517,17 +526,27 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   // but must never remove or relabel a journey supplied by SIRI.
   const confirmed=items;
   const plannedNumbers=new Set(items.map(item=>String(item.train_no)));
+  const missingNumbers=[...new Set(possibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!plannedNumbers.has(number)))];
+  let metadataPlan={journeys:[]};
+  if(missingNumbers.length) {
+    try { metadataPlan=await getPlan(date,locationCode,false,missingNumbers); } catch {}
+  }
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
   const graphOnly=possibleWorkTrains.filter(train=>!plannedNumbers.has(String(train.train_no))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
+    const metadata=metadataJourneyForTrain(metadataPlan.journeys,train.train_no,date);
     const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time}));
     const singlePoint=route.length===1;
-    return [{journey_id:train.journey_id,train_no:String(train.train_no),line:`Graf ${train.line_number}`,
-      category:train.work_hint?'Mulig arbeidstog':'Ukjent',operator:train.work_hint?'Bane NOR-bestilt':'Ikke oppgitt',operator_code:train.work_hint?'BN?':'',origin:singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code,
-      destination:singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code,direction_ref:singlePoint?'':train.destination_code || '',time:stop.time,
-      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',
-      current_location:null,current_location_code:null,source:'Bane NOR rutegraf (tolket)',event_type:eventType,
+    return [{journey_id:train.journey_id,train_no:String(train.train_no),line:metadata?.line || `Graf ${train.line_number}`,
+      category:metadata?.category && metadata.category!=='Ukjent'?metadata.category:train.work_hint?'Mulig arbeidstog':'Ukjent',
+      operator:metadata?.operator && metadata.operator!=='Ukjent'?metadata.operator:train.work_hint?'Bane NOR-bestilt':'Ikke oppgitt',
+      operator_code:metadata?.operator_code || (train.work_hint?'BN?':''),
+      origin:metadata?.origin || (singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code),
+      destination:metadata?.destination || (singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code),
+      direction_ref:metadata?.direction_ref || (singlePoint?'':train.destination_code || ''),time:stop.time,
+      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',
+      current_location:null,current_location_code:null,source:metadata?'Bane NOR SIRI PT + rutegraf':'Bane NOR rutegraf (tolket)',event_type:eventType,
       graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number)}];
   });
   return {items:[...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
@@ -719,12 +738,12 @@ export function detailFromJourney(journey, locationCode, sourceTime) {
 }
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   if(item?.graph_only) {
-    return {journey_id:item.journey_id,train_no:item.train_no,category:'Mulig arbeidstog',operator:'Bane NOR-bestilt',
+    return {journey_id:item.journey_id,train_no:item.train_no,line:item.line,category:item.category || 'Ukjent',operator:item.operator || 'Ikke oppgitt',
       origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
-      source_url:item.graph_url || null,
+      source:item.source,source_url:item.graph_url || null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
         planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
-        actual_departure:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
+        actual_departure:null,platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
   }
   let dataset;
   if(date===today) {

@@ -46,6 +46,11 @@ async function proxyXml(request, upstreamBase, allowed, ttl) {
 async function proxyProductionTimetable(request, ctx) {
   const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
   if(!/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
+  const rawTrainNumbers=(incoming.searchParams.get('TrainNumbers') || '').split(',').map(value=>value.trim()).filter(Boolean);
+  if(rawTrainNumbers.length>500 || rawTrainNumbers.some(value=>!/^\d{1,6}$/.test(value))) {
+    return Response.json({detail:'Ugyldige tognumre'},{status:400});
+  }
+  const trainNumbers=[...new Set(rawTrainNumbers)];
   const cache=typeof caches!=='undefined' ? caches.default : null;
   const cached=cache ? await cache.match(request) : null;
   if(cached) return cached;
@@ -55,7 +60,7 @@ async function proxyProductionTimetable(request, ctx) {
     cf:{cacheEverything:true,cacheTtl:600},headers:{'User-Agent':'Togoversikt.no/1.0'}
   });
   const xml=await response.text();
-  const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode):xml,{
+  const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode,trainNumbers):xml,{
     status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=600','X-Togoversikt-Upstream':'Bane NOR SIRI PT'}
   });
   if(cache && response.ok) {

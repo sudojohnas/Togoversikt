@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, queryTrains, smFallbackStatus } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, queryTrains, smFallbackStatus } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -189,6 +189,14 @@ test('keeps SIRI live data authoritative over Togkart', () => {
   assert.deepEqual(mergeLiveItems([planned],[siri],[togkart]),[{...siri,graph_fallback:false}]);
 });
 
+test('selects same-date SIRI metadata for a graph-only passing train', () => {
+  const journeys=[
+    {journey_id:'125:2026-10-06',train_no:'125',operator:'Vy'},
+    {journey_id:'125:2026-10-07',train_no:'125',operator:'Vy',category:'Persontog',line:'RE20'},
+  ];
+  assert.equal(metadataJourneyForTrain(journeys,'125','2026-10-07'),journeys[1]);
+});
+
 test('expires an old planned train when no live time was ever reported', () => {
   const stale={...baseCall,planned_iso:'2026-09-27T16:02:39+02:00',aimed_departure_iso:'2026-09-27T16:02:39+02:00'};
   assert.deepEqual(
@@ -299,6 +307,38 @@ test('ships the active stopping points in the searchable location list', () => {
   const byCode=new Map(locations.map(location=>[location.code,location]));
   assert.equal(byCode.get('NTH')?.name,'Nationaltheatret');
   for(const code of ['LIE','LSD','NBY','SDA','JÅT']) assert.ok(byCode.has(code),`${code} mangler`);
+});
+
+test('enriches a graph-only passing train with complete SIRI PT metadata', async () => {
+  const originalFetch=globalThis.fetch;
+  const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const metadataPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourney><DatedVehicleJourneyCode>125:2099-01-03</DatedVehicleJourneyCode><ProductCategoryRef>Rt</ProductCategoryRef><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>OSL</StopPointRef><StopPointName>Oslo S</StopPointName><AimedDepartureTime>2099-01-03T11:00:00+01:00</AimedDepartureTime></DatedCall><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2099-01-03T12:10:00+01:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={date:'2099-01-03',trains:[],graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:2099-01-03:24:125:12:00:1',train_no:'125',line_number:24,origin_code:'BG',destination_code:'HLD',work_hint:false,
+    route:[{code:'BG',time:'12:00',minute:720},{code:'HLD',time:'12:10',minute:730}],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path==='/locations.json') return new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+    if(path.startsWith('/api/pt')) return new Response(path.includes('TrainNumbers=125')?metadataPt:emptyPt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'BG',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'BG',location:'Berg',date:'2099-01-03',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
+    assert.equal(result.items.length,1);
+    assert.deepEqual(result.items[0],{
+      journey_id:'graph:2099-01-03:24:125:12:00:1',train_no:'125',line:'RE20',category:'Persontog',operator:'Vy',operator_code:'VY',
+      origin:'Oslo S',destination:'Halden',direction_ref:'HLD',time:'12:00',planned_time:'12:00',expected_time:null,actual_time:null,
+      platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:null,current_location_code:null,
+      source:'Bane NOR SIRI PT + rutegraf',event_type:'arrival',graph_fallback:true,graph_only:true,
+      graph_route:[{code:'BG',name:'Berg',time:'12:00'},{code:'HLD',name:'Halden',time:'12:10'}],
+      graph_url:dailyGraphUrl('2099-01-03',24),
+    });
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
 });
 
 test('uses the production timetable when historical ET is temporarily unavailable', async () => {
