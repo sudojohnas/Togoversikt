@@ -28,6 +28,12 @@ test('operational notice is shown only for Halden and Berg', () => {
   assert.equal(operationalNoticesForLocation('BG', now,notices).length, 1);
 });
 
+test('shows an incomplete notice on its graph date', () => {
+  const partial={...notices[0],id:'partial',startsAt:null,endsAt:null,activeDate:'2026-10-07'};
+  assert.equal(activeOperationalNotices(new Date('2026-10-07T12:00:00+02:00'),[partial]).length,1);
+  assert.equal(activeOperationalNotices(new Date('2026-10-08T00:01:00+02:00'),[partial]).length,0);
+});
+
 test('keeps and deduplicates notices across board fallbacks', () => {
   const replacement={...notices[0],message:'Oppdatert melding'};
   const other={...notices[0],id:'graph:other',trainNo:'999'};

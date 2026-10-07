@@ -498,7 +498,8 @@ function cyclicDistance(start,end) { return (end-start+1440)%1440; }
 
 export function buildGraphOperationalNotices(graphData, date, locationCode, locationItems=[]) {
   const nameByCode=new Map(locationItems.map(location=>[location.code,location.name]));
-  const relevant=(graphData.operational_sections || []).filter(section=>(section.section_codes || []).includes(locationCode));
+  const allSections=graphData.operational_sections || [];
+  const relevant=allSections.filter(section=>(section.section_codes || []).includes(locationCode));
   const groups=new Map();
   for(const section of relevant) {
     const codes=section.section_codes || [];
@@ -520,12 +521,21 @@ export function buildGraphOperationalNotices(graphData, date, locationCode, loca
       if(!covered) continue;
       if(!best || covered>best.covered || (covered===best.covered && duration<best.duration)) best={start,end,duration,covered};
     }
-    if(!best) continue;
+    const route=(group.section_codes || []).map(code=>nameByCode.get(code) || code).join('–');
+    if(!best) {
+      const knownTimes=[...new Set(markers.map(marker=>marker.time).filter(Boolean))];
+      notices.push({
+        id:`graph-partial:${date}:${group.line_number}:${group.train_no}:${(group.section_codes || []).join('-')}`,
+        trainNo:String(group.train_no),route,locationCodes:group.section_codes || [],startsAt:null,endsAt:null,
+        activeDate:date,knownTimes,missing:['fullstendig tidsrom'],graphDate:date,graphLine:Number(group.line_number),
+        message:`Toget er ført mellom ${route.replace('–',' og ')} i rutegrafen, men hele tidsrommet kunne ikke tolkes.`,
+      });
+      continue;
+    }
     const crossesMidnight=Number(best.end.minute)<=Number(best.start.minute);
     const starts=[crossesMidnight?addDays(date,-1):date, date];
     for(const startDate of [...new Set(starts)]) {
       const endDate=crossesMidnight?addDays(startDate,1):startDate;
-      const route=(group.section_codes || []).map(code=>nameByCode.get(code) || code).join('–');
       notices.push({
         id:`graph:${startDate}:${group.line_number}:${group.train_no}:${best.start.time}`,
         trainNo:String(group.train_no),route,locationCodes:group.section_codes || [],
@@ -534,6 +544,28 @@ export function buildGraphOperationalNotices(graphData, date, locationCode, loca
         message:`Toget er ført mellom ${route.replace('–',' og ')} i rutegrafen i dette tidsrommet.`,
       });
     }
+  }
+  const sectionTrainKeys=new Set(allSections.map(section=>`${section.line_number}:${section.train_no}`));
+  const markerGroups=new Map();
+  for(const marker of (graphData.operational_markers || []).filter(marker=>marker.work_hint)) {
+    const key=`${marker.line_number}:${marker.train_no}`;
+    if(sectionTrainKeys.has(key)) continue;
+    if(!markerGroups.has(key)) markerGroups.set(key,[]);
+    markerGroups.get(key).push(marker);
+  }
+  for(const [key,markers] of markerGroups) {
+    const locationCodes=[...new Set(markers.map(marker=>marker.station_code).filter(Boolean))];
+    if(!locationCodes.includes(locationCode)) continue;
+    const [lineNumber,trainNo]=key.split(':');
+    const knownTimes=[...new Set(markers.map(marker=>marker.time).filter(Boolean))];
+    const missing=['strekning'];
+    if(knownTimes.length<2) missing.push('fullstendig tidsrom');
+    notices.push({
+      id:`graph-partial:${date}:${lineNumber}:${trainNo}:missing-section`,trainNo:String(trainNo),
+      route:'Strekning ikke identifisert',locationCodes,startsAt:null,endsAt:null,activeDate:date,knownTimes,missing,
+      graphDate:date,graphLine:Number(lineNumber),
+      message:'Toget er særskilt markert i rutegrafen, men strekningen kunne ikke tolkes.',
+    });
   }
   return notices;
 }

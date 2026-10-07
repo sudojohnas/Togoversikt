@@ -31,6 +31,16 @@ function noticeTime(value) {
   return `${noticeDateFmt.format(date)} kl. ${localTime(date)}`;
 }
 
+function noticeTimeSummary(notice) {
+  if(Number.isFinite(Date.parse(notice.startsAt)) && Number.isFinite(Date.parse(notice.endsAt))) {
+    return `${noticeTime(notice.startsAt)} – ${noticeTime(notice.endsAt)}`;
+  }
+  const times=[...new Set(notice.knownTimes || [])];
+  if(times.length>1) return `Registrerte tider: ${times.join(' og ')}`;
+  if(times.length===1) return `Kun ett tidspunkt funnet: ${times[0]}`;
+  return 'Tidsrom ikke funnet i rutegrafen';
+}
+
 function renderOperationalNotices() {
   const container = $('operational-notices');
   const notices = operationalNoticesForLocation($('location').dataset.code,new Date(),lastOperationalNotices);
@@ -41,8 +51,9 @@ function renderOperationalNotices() {
       <div class="operational-notice-copy">
         <div class="kicker">OBS</div>
         <h2>Tog ${esc(notice.trainNo)} · ${esc(notice.route)}</h2>
-        <p class="operational-notice-time">${esc(noticeTime(notice.startsAt))} – ${esc(noticeTime(notice.endsAt))}</p>
+        <p class="operational-notice-time">${esc(noticeTimeSummary(notice))}</p>
         <p>${esc(notice.message)} <strong>Sjekk rutegrafen.</strong></p>
+        ${(notice.missing || []).length ? `<p class="operational-notice-missing"><strong>Mangler:</strong> ${esc(notice.missing.join(' og '))}.</p>` : ''}
       </div>
     </article>`).join('');
 }

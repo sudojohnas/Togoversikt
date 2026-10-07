@@ -512,6 +512,29 @@ test('builds a cross-midnight section notice from split graph markers', () => {
   assert.equal(buildGraphOperationalNotices(graphData,'2026-10-06','OSL',[]).length,0);
 });
 
+test('builds a partial notice when a section has no complete time range', () => {
+  const result=buildGraphOperationalNotices({
+    operational_markers:[{train_no:'54702',line_number:24,station_code:'HLD',time:'22:54',minute:1374,work_hint:true}],
+    operational_sections:[{train_no:'54702',line_number:24,time:'01:52',minute:112,section_codes:['HLD','BG']}],
+  },'2026-10-08','HLD',[{code:'HLD',name:'Halden'},{code:'BG',name:'Berg'}]);
+  assert.equal(result.length,1);
+  assert.equal(result[0].route,'Halden–Berg');
+  assert.deepEqual(result[0].missing,['fullstendig tidsrom']);
+  assert.deepEqual(result[0].knownTimes,['22:54']);
+});
+
+test('builds a conservative partial notice when only a special marker remains', () => {
+  const result=buildGraphOperationalNotices({
+    operational_markers:[
+      {train_no:'54702',line_number:24,station_code:'HLD',time:'22:54',minute:1374,work_hint:true},
+      {train_no:'123',line_number:24,station_code:'HLD',time:'23:10',minute:1390,work_hint:false},
+    ],operational_sections:[],
+  },'2026-10-08','HLD',[{code:'HLD',name:'Halden'}]);
+  assert.equal(result.length,1);
+  assert.equal(result[0].route,'Strekning ikke identifisert');
+  assert.deepEqual(result[0].missing,['strekning','fullstendig tidsrom']);
+});
+
 test('uses next-day ET cancellation status instead of the uncancelled plan', async () => {
   const originalFetch=globalThis.fetch;
   const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourney><DatedVehicleJourneyCode>139:2026-10-07</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalPlatformName>1</ArrivalPlatformName></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';

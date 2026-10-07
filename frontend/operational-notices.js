@@ -1,11 +1,13 @@
 const DAILY_GRAPH_URL = 'https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/';
+const osloDate = new Intl.DateTimeFormat('en-CA', {timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
 
 export function activeOperationalNotices(now = new Date(), notices = []) {
   const timestamp = now.getTime();
   return notices.filter(notice => {
     const start = Date.parse(notice.startsAt);
     const end = Date.parse(notice.endsAt);
-    return Number.isFinite(start) && Number.isFinite(end) && timestamp >= start && timestamp < end;
+    if(Number.isFinite(start) && Number.isFinite(end)) return timestamp >= start && timestamp < end;
+    return String(notice.activeDate || notice.graphDate || '') === osloDate.format(now);
   });
 }
 

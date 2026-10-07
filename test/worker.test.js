@@ -25,4 +25,6 @@ test('returns the configured graph lines without parsing PDFs', async () => {
   const response=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=OSL'),{},{});
   assert.equal(response.status,200);
   assert.deepEqual(await response.json(),{location:'OSL',lines:[1,3,6,7,21,23,24,25]});
+  const skotterud=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=SKO'),{},{});
+  assert.deepEqual(await skotterud.json(),{location:'SKO',lines:[1]});
 });
