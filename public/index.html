@@ -90,9 +90,9 @@
       </section>
 
       <div class="board-mode" role="group" aria-label="Velg tidstype">
+        <button id="show-both" class="active" type="button" aria-pressed="true">Begge</button>
         <button id="show-arrivals" type="button" aria-pressed="false">Ankomst</button>
-        <button id="show-departures" class="active" type="button" aria-pressed="true">Avgang</button>
-        <button id="show-both" type="button" aria-pressed="false">Begge</button>
+        <button id="show-departures" type="button" aria-pressed="false">Avgang</button>
       </div>
 
       <section id="operational-notices" class="operational-notices" aria-label="Viktige driftsmeldinger" aria-live="polite" hidden></section>
@@ -114,7 +114,7 @@
 
       <section id="table-panel" class="panel table-panel">
         <table>
-          <thead><tr><th id="time-heading">Avgang</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
+          <thead><tr><th id="time-heading">Tid</th><th>Tog</th><th>Spor</th><th>Type</th><th>Operatør</th><th>Retning</th><th>Status</th></tr></thead>
           <tbody id="rows"><tr><td colspan="7" class="empty">Henter togdata …</td></tr></tbody>
         </table>
       </section>
