@@ -186,7 +186,8 @@ async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=n
     possible_work_trains:loaded.flatMap(result=>result.possible_work_trains || []),graphs_loaded:loaded.length,
     operational_markers:loaded.flatMap(result=>result.operational_markers || []),
     operational_sections:loaded.flatMap(result=>result.operational_sections || []),
-    graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null};
+    graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null,
+    checked_at:loaded.map(result=>result.checked_at).filter(Boolean).sort().at(-1) || null};
 }
 
 async function dailyGraphMatches(request, ctx, store) {
@@ -214,7 +215,7 @@ async function dailyGraphMatches(request, ctx, store) {
   },new Map()).values()];
   return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
     graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains,
-    operational_markers:data.operational_markers,operational_sections:data.operational_sections},{
+    checked_at:data.checked_at,operational_markers:data.operational_markers,operational_sections:data.operational_sections},{
     headers:{'Cache-Control':'public, max-age=300'}
   });
 }

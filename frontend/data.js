@@ -498,6 +498,7 @@ export function mergeDailyGraphResponses(responses=[], expected=responses.length
     graphs_loaded:loaded.reduce((sum,response)=>sum+(Number(response.graphs_loaded) || 0),0),
     graphs_expected:expected,
     source_time:loaded.map(response=>response.source_time).filter(Boolean).sort().at(-1) || null,
+    checked_at:loaded.map(response=>response.checked_at).filter(Boolean).sort().at(-1) || null,
   };
 }
 
@@ -630,7 +631,8 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
       direction_ref:metadata?.direction_ref || (singlePoint?'':train.destination_code || ''),time:stop.time,
       planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',
       current_location:null,current_location_code:null,source:metadata?'Bane NOR SIRI PT + rutegraf':'Bane NOR rutegraf (tolket)',event_type:eventType,
-      graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number)}];
+      graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number),
+      ...((response.checked_at || response.source_time)?{graph_checked_at:response.checked_at || response.source_time}:{})}];
   });
   return {items:[...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
     operational_notices:buildGraphOperationalNotices(response,date,locationCode,locationItems),source_time:plan.source_time};

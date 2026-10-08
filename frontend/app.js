@@ -5,6 +5,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const pad = n => String(n).padStart(2, '0');
 const osloDateFmt = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
 const osloTimeFmt = new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});
+const osloShortDateFmt = new Intl.DateTimeFormat('nb-NO',{timeZone:'Europe/Oslo',day:'numeric',month:'short',year:'numeric'});
 const localDate = d => osloDateFmt.format(d);
 const localTime = d => osloTimeFmt.format(d);
 let searchTimer = null;
@@ -86,7 +87,7 @@ function formatSourceTime(value) {
 function dataSignature(data) {
   return JSON.stringify((data.items || []).map(x => [
     x.journey_id, x.time, x.planned_time, x.expected_time, x.actual_time,
-    x.platform, x.status, x.current_location, x.graph_fallback, x.event_type
+    x.platform, x.status, x.current_location, x.graph_fallback, x.graph_checked_at, x.event_type
   ]));
 }
 
@@ -167,7 +168,12 @@ function timeCell(x) {
 function statusCell(x) {
   const s = String(x.status || '');
   const passing = x.passing ? '<span class="desktop-passing">Passerende</span>' : '';
-  if (x.graph_only) return `${passing}<strong>Hentet fra rutegraf</strong><small>Ingen sanntidsdata</small>`;
+  if (x.graph_only) {
+    const fetched = new Date(x.graph_checked_at || '');
+    const fetchedLabel = Number.isNaN(fetched.getTime()) ? ''
+      : `kl. ${localTime(fetched)} ${localDate(fetched) === localDate(new Date()) ? 'i dag' : osloShortDateFmt.format(fetched)}`;
+    return `${passing}<strong>Hentet fra rutegraf</strong><small>${fetchedLabel ? `${esc(fetchedLabel)} · ` : ''}Ingen sanntidsdata</small>`;
+  }
   const graph = x.graph_fallback ? '<small>Hentet fra rutegraf</small>' : '';
   if (s.includes('Innstilt')) return `${passing}<strong>Innstilt</strong>`;
   if (s.includes('Forsinket')) {
@@ -223,10 +229,11 @@ function renderTrainRows() {
   }
   $('rows').innerHTML = items.map(x => {
     const operator=String(x.operator || '').trim();
+    const platform=String(x.platform || '').trim();
     return `<tr class="train-row ${rowClass(x)}" tabindex="0" data-id="${esc(trainItemKey(x))}">
     <td class="time time-cell">${timeCell(x)}</td>
     <td class="trainno train-cell">${esc(x.train_no)}${x.line && x.line !== '-' ? `<small>${esc(x.line)}</small>` : ''}</td>
-    <td class="track-cell"><span class="track-value"><span class="track-label">Spor </span>${esc(x.platform || '–')}</span>${x.passing ? '<span class="passing-label">Passerende</span>' : ''}</td>
+    <td class="track-cell">${platform ? `<span class="track-value"><span class="track-label">Spor </span>${esc(platform)}</span>` : ''}${x.passing ? '<span class="passing-label">Passerende</span>' : ''}</td>
     <td class="type-text type-cell">${esc(x.category)}${operator ? `<span class="mobile-operator"> · ${esc(operator)}</span>` : ''}</td>
     <td class="operator-cell">${esc(operator)}</td>
     <td class="direction route-cell">${esc(x.origin)} <span>→</span> ${esc(x.destination)}${unconfirmedNote(x)}</td>

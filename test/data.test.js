@@ -372,7 +372,7 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
   const originalFetch=globalThis.fetch;
   const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
   const metadataPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourney><DatedVehicleJourneyCode>125:2099-01-03</DatedVehicleJourneyCode><ProductCategoryRef>Rt</ProductCategoryRef><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>OSL</StopPointRef><StopPointName>Oslo S</StopPointName><AimedDepartureTime>2099-01-03T11:00:00+01:00</AimedDepartureTime></DatedCall><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2099-01-03T12:10:00+01:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
-  const graph={date:'2099-01-03',trains:[],graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+  const graph={date:'2099-01-03',trains:[],graphs_loaded:1,graphs_expected:1,checked_at:'2099-01-03T01:50:00+01:00',possible_work_trains:[{
     journey_id:'graph:2099-01-03:24:125:12:00:1',train_no:'125',line_number:24,origin_code:'BG',destination_code:'HLD',work_hint:false,
     route:[{code:'BG',time:'12:00',minute:720},{code:'HLD',time:'12:10',minute:730}],
   }]};
@@ -393,7 +393,7 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
       platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:null,current_location_code:null,
       source:'Bane NOR SIRI PT + rutegraf',event_type:'arrival',graph_fallback:true,graph_only:true,
       graph_route:[{code:'BG',name:'Berg',time:'12:00'},{code:'HLD',name:'Halden',time:'12:10'}],
-      graph_url:dailyGraphUrl('2099-01-03',24),
+      graph_url:dailyGraphUrl('2099-01-03',24),graph_checked_at:'2099-01-03T01:50:00+01:00',
     });
   } finally {
     globalThis.fetch=originalFetch;
@@ -529,14 +529,14 @@ test('uses the production timetable when historical ET is temporarily unavailabl
 
 test('merges independently processed daily graph lines', () => {
   const merged=mergeDailyGraphResponses([
-    {trains:['123'],possible_work_trains:[{train_no:'9001'}],graphs_loaded:1,source_time:'2026-10-06T10:00:00Z'},
+    {trains:['123'],possible_work_trains:[{train_no:'9001'}],graphs_loaded:1,source_time:'2026-10-06T10:00:00Z',checked_at:'2026-10-06T10:01:00Z'},
     null,
-    {trains:['123','456'],possible_work_trains:[{train_no:'9002'}],graphs_loaded:1,source_time:'2026-10-06T10:02:00Z'},
+    {trains:['123','456'],possible_work_trains:[{train_no:'9002'}],graphs_loaded:1,source_time:'2026-10-06T10:02:00Z',checked_at:'2026-10-06T10:03:00Z'},
   ],3);
   assert.deepEqual(merged,{
     trains:['123','456'],possible_work_trains:[{train_no:'9001'},{train_no:'9002'}],
     operational_markers:[],operational_sections:[],
-    graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',
+    graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',checked_at:'2026-10-06T10:03:00Z',
   });
 });
 
