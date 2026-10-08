@@ -278,7 +278,17 @@ async function dailyGraphMatches(request, ctx, store) {
 function dailyGraphLines(request) {
   const url=new URL(request.url);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
-  return Response.json({location:locationCode,lines:STATION_GRAPH_LINES[locationCode] || []},
+  const lines=STATION_GRAPH_LINES[locationCode] || [];
+  const routeCodes=[...new Set((url.searchParams.get('route') || '').split(',').map(code=>code.trim().toUpperCase())
+    .filter(code=>/^[A-ZÆØÅ0-9]{1,8}$/u.test(code)).slice(0,150))];
+  if(routeCodes.length) {
+    const scored=lines.map(line=>({line,score:routeCodes.filter(code=>code!==locationCode && (STATION_GRAPH_LINES[code] || []).includes(line)).length}));
+    const best=Math.max(0,...scored.map(item=>item.score));
+    const matchedLines=best>0?scored.filter(item=>item.score===best).map(item=>item.line):lines;
+    return Response.json({location:locationCode,lines,matched_lines:matchedLines},
+      {headers:{'Cache-Control':'public, max-age=86400'}});
+  }
+  return Response.json({location:locationCode,lines},
     {headers:{'Cache-Control':'public, max-age=86400'}});
 }
 

@@ -1,4 +1,4 @@
-import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail } from './data.js';
+import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
 import { mergeOperationalNotices, operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -421,10 +421,17 @@ async function openDetail(itemKey, force=false) {
         <span>${routeTime(stop)}${stop.platform ? ` · spor ${esc(stop.platform)}` : ''}${stop.status === 'Innstilt' ? ' · innstilt' : ''}</span></div>
       </div>`;
     }).join('');
-    const sourceUrl = x.source_url || item?.graph_url;
-    const sourceLink = sourceUrl
-      ? `<a class="detail-source-link" href="${esc(sourceUrl)}" target="_blank" rel="noopener noreferrer">Åpne rutegraf hos Bane NOR <span aria-hidden="true">↗</span></a>`
-      : '';
+    let graphLinks=[];
+    try { graphLinks=await trainGraphsForJourney($('location').dataset.code || '',$('date').value,x.route || []); } catch {}
+    const sourceUrl=x.source_url || item?.graph_url;
+    if(sourceUrl) {
+      const sourceLine=Number(new URL(sourceUrl).searchParams.get('selectLine'));
+      const known=graphLinks.find(link=>link.line===sourceLine);
+      graphLinks=[{line:sourceLine,name:known?.name || `Rutegraf ${sourceLine}`,url:sourceUrl},...graphLinks.filter(link=>link.url!==sourceUrl)];
+    }
+    const sourceLinks=graphLinks.length ? `<div class="detail-source-links"><span>Rutegraf hos Bane NOR</span>${graphLinks.map(link=>
+      `<a class="detail-source-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} <span aria-hidden="true">↗</span></a>`
+    ).join('')}</div>` : '';
     $('detail-content').innerHTML = `
       <div class="detail-head"><div><div class="kicker">${esc(x.category)}</div><h2>Tog ${esc(x.train_no)}</h2><p>${esc(x.origin)} → ${esc(x.destination)}</p></div><button id="detail-refresh" class="detail-refresh" type="button">Oppdater</button></div>
       <div class="detail-grid">
@@ -433,7 +440,7 @@ async function openDetail(itemKey, force=false) {
         ${x.passing ? '<div><span>Stopp ved valgt punkt</span><strong>Nei – passerer uten stopp</strong></div>' : ''}
         <div><span>Siste registrerte punkt</span><strong>${esc(x.current_location)}</strong></div>
       </div>
-      ${sourceLink}
+      ${sourceLinks}
       <h3>Rute</h3>
       <div class="route">${route || '<p class="muted">Ingen rutepunkter tilgjengelig.</p>'}</div>`;
     const refresh = $('detail-refresh');

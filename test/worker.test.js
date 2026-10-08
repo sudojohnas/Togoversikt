@@ -27,6 +27,14 @@ test('returns the configured graph lines without parsing PDFs', async () => {
   assert.deepEqual(await response.json(),{location:'OSL',lines:[1,3,6,7,21,23,24,25]});
   const skotterud=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=SKO'),{},{});
   assert.deepEqual(await skotterud.json(),{location:'SKO',lines:[1]});
+  const haldenTrain=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=OSL&route=OSL,BG,HLD'),{},{});
+  assert.deepEqual(await haldenTrain.json(),{
+    location:'OSL',lines:[1,3,6,7,21,23,24,25],matched_lines:[24],
+  });
+  const bergenTrain=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=OSL&route=OSL,DRM'),{},{});
+  assert.deepEqual((await bergenTrain.json()).matched_lines,[6]);
+  const gjovikTrain=await worker.fetch(new Request('https://togoversikt.no/api/daily-graph-lines?location=OSL&route=OSL,GJ%C3%98'),{},{});
+  assert.deepEqual((await gjovikTrain.json()).matched_lines,[3]);
 });
 
 test('scheduled updates warm today every quarter and tomorrow every hour', async () => {

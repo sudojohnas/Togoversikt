@@ -48,6 +48,17 @@ export async function routeGraphsForLocation(locationCode,date) {
   return (response.lines || []).map(line=>({line:Number(line),name:DAILY_GRAPH_NAMES[Number(line)] || `Rutegraf ${line}`,url:dailyGraphUrl(date,line)}));
 }
 
+export async function trainGraphsForJourney(locationCode,date,route=[]) {
+  const codes=[...new Set(route.map(stop=>String(stop?.code || '').toUpperCase()).filter(code=>/^[A-ZÆØÅ0-9]{1,8}$/u.test(code)))];
+  const p=new URLSearchParams({location:String(locationCode || '').toUpperCase()});
+  if(codes.length) p.set('route',codes.join(','));
+  const response=await fetchJson(`/api/daily-graph-lines?${p}`);
+  const matched=response.matched_lines?.length?response.matched_lines:response.lines || [];
+  return [...new Set(matched.map(Number).filter(Number.isFinite))].map(line=>({
+    line,name:DAILY_GRAPH_NAMES[line] || `Rutegraf ${line}`,url:dailyGraphUrl(date,line),
+  }));
+}
+
 function searchKey(value='') {
   return String(value).toLocaleLowerCase('no').replaceAll('ø','o').replaceAll('æ','ae').replaceAll('å','a')
     .normalize('NFKD').replace(/[\u0300-\u036f]/g,'');
