@@ -390,7 +390,7 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
     assert.deepEqual(result.items[0],{
       journey_id:'graph:2099-01-03:24:125:12:00:1',train_no:'125',line:'RE20',category:'Persontog',operator:'Vy',operator_code:'VY',
       origin:'Oslo S',destination:'Halden',direction_ref:'HLD',time:'12:00',planned_time:'12:00',expected_time:null,actual_time:null,
-      platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:null,current_location_code:null,
+      platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:null,current_location_code:null,
       source:'Bane NOR SIRI PT + rutegraf',event_type:'arrival',graph_fallback:true,graph_only:true,
       graph_route:[{code:'BG',name:'Berg',time:'12:00'},{code:'HLD',name:'Halden',time:'12:10'}],
       graph_url:dailyGraphUrl('2099-01-03',24),graph_checked_at:'2099-01-03T01:50:00+01:00',

@@ -629,7 +629,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
       origin:metadata?.origin || (singlePoint?'Ikke oppgitt':names.get(train.origin_code) || train.origin_code),
       destination:metadata?.destination || (singlePoint?'Ikke oppgitt':names.get(train.destination_code) || train.destination_code),
       direction_ref:metadata?.direction_ref || (singlePoint?'':train.destination_code || ''),time:stop.time,
-      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',
+      planned_time:stop.time,expected_time:null,actual_time:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',
       current_location:null,current_location_code:null,source:metadata?'Bane NOR SIRI PT + rutegraf':'Bane NOR rutegraf (tolket)',event_type:eventType,
       graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number),
       ...((response.checked_at || response.source_time)?{graph_checked_at:response.checked_at || response.source_time}:{})}];
@@ -830,7 +830,7 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
       source:item.source,source_url:item.graph_url || null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
         planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
-        actual_departure:null,platform:'',passing:true,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
+        actual_departure:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
   }
   let dataset;
   if(date===today) {
