@@ -99,7 +99,7 @@ async function storeGraphResult(cache, cacheKey, store, storeKey, data, ctx, per
   if(persist && store) await store.put(storeKey,JSON.stringify(data));
 }
 
-async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
+async function dailyGraphLine(date, line, ctx, store, part=1, parts=1, forceCheck=false) {
   const cache=typeof caches!=='undefined' ? caches.default : null;
   const partKey=parts>1?`:${part}-of-${parts}`:'';
   const cacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${GRAPH_PARSER_VERSION}/${date}/${line}${partKey}`);
@@ -110,14 +110,8 @@ async function dailyGraphLine(date, line, ctx, store, part=1, parts=1) {
     cached=await store.get(storeKey,'json');
     if(cached) await storeGraphResult(cache,cacheKey,null,storeKey,cached,ctx);
   }
-  if(!cached && parts>1) {
-    const completeCacheKey=new Request(`https://togoversikt.no/__cache/daily-graphs/${GRAPH_PARSER_VERSION}/${date}/${line}`);
-    const completeResponse=cache ? await cache.match(completeCacheKey) : null;
-    cached=completeResponse ? await completeResponse.json() : null;
-    if(!cached && store) cached=await store.get(`daily-graph:${GRAPH_PARSER_VERSION}:${date}:${line}`,'json');
-  }
   const checkedAt=Date.parse(cached?.checked_at || '');
-  if(cached && Array.isArray(cached.possible_work_trains) && Array.isArray(cached.operational_sections) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
+  if(!forceCheck && cached && Array.isArray(cached.possible_work_trains) && Array.isArray(cached.operational_sections) && Number.isFinite(checkedAt) && Date.now()-checkedAt<GRAPH_CHECK_INTERVAL_MS) return cached;
 
   if(cached && Array.isArray(cached.possible_work_trains) && Array.isArray(cached.operational_sections)) {
     try {
@@ -188,6 +182,27 @@ async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=n
     operational_sections:loaded.flatMap(result=>result.operational_sections || []),
     graphs_expected:lines.length,source_time:loaded.map(result=>result.source_time).sort().at(-1) || null,
     checked_at:loaded.map(result=>result.checked_at).filter(Boolean).sort().at(-1) || null};
+}
+
+async function warmDailyGraphCache(date, ctx, store) {
+  const tasks=Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1).flatMap(line=>{
+    const parts=line===6?12:1;
+    return Array.from({length:parts},(_,index)=>({line,part:index+1,parts}));
+  });
+  let cursor=0, completed=0;
+  const workers=Array.from({length:2},async()=>{
+    while(cursor<tasks.length) {
+      const task=tasks[cursor++];
+      try {
+        await dailyGraphLine(date,task.line,ctx,store,task.part,task.parts,true);
+        completed++;
+      } catch {
+        // Én utilgjengelig graf skal ikke stoppe oppvarmingen av de andre.
+      }
+    }
+  });
+  await Promise.all(workers);
+  return {attempted:tasks.length,completed};
 }
 
 async function dailyGraphMatches(request, ctx, store) {
@@ -281,8 +296,9 @@ export default {
     }
     return env.ASSETS.fetch(request);
   },
-  async scheduled(_controller, env, ctx) {
-    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
-    ctx.waitUntil(dailyGraphNumbers(date,'',ctx,env.ROUTE_GRAPHS));
+  async scheduled(controller, env, ctx) {
+    const scheduledAt=Number.isFinite(controller?.scheduledTime)?new Date(controller.scheduledTime):new Date();
+    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(scheduledAt);
+    ctx.waitUntil(warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS));
   },
 };
