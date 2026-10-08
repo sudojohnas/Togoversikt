@@ -47,7 +47,7 @@ test('scheduled updates warm every graph and split the large Oslo graph', async 
   try {
     await worker.scheduled({scheduledTime:Date.parse('2026-10-08T02:00:00+02:00')},{ROUTE_GRAPHS:store},ctx);
     await Promise.all(pending);
-    assert.equal(calls.length,36);
+    assert.equal(calls.length,40);
     assert.ok(calls.every(method=>method==='HEAD'));
   } finally {
     globalThis.fetch=originalFetch;

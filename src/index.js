@@ -1,7 +1,7 @@
 import { DAILY_GRAPH_COUNT, extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
 import LOCATIONS from '../public/locations.json' with { type: 'json' };
-import { filterProductionTimetableXml } from './pt-filter.js';
+import { filterEstimatedTimetableXml, filterProductionTimetableXml } from './pt-filter.js';
 
 const SIRI = 'https://siri.banenor.no/jbv';
 const ENTUR = 'https://api.entur.io/geocoder/v1/reverse';
@@ -12,6 +12,11 @@ const MAX_WORK_GRAPH_BYTES = 350 * 1024;
 const GRAPH_PARSER_VERSION = 'v7';
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjon').map(location=>location.code);
+const SPLIT_GRAPH_LINES = new Set([7,23,24,25]);
+
+function graphParts(line) {
+  return Number(line)===6?12:SPLIT_GRAPH_LINES.has(Number(line))?2:1;
+}
 
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
@@ -45,6 +50,7 @@ async function proxyXml(request, upstreamBase, allowed, ttl) {
 
 async function proxyProductionTimetable(request, ctx) {
   const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
+  const fullJourney=incoming.searchParams.get('IncludeFullJourney')==='true';
   if(!/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
   const rawTrainNumbers=(incoming.searchParams.get('TrainNumbers') || '').split(',').map(value=>value.trim()).filter(Boolean);
   if(rawTrainNumbers.length>500 || rawTrainNumbers.some(value=>!/^\d{1,6}$/.test(value))) {
@@ -60,8 +66,33 @@ async function proxyProductionTimetable(request, ctx) {
     cf:{cacheEverything:true,cacheTtl:600},headers:{'User-Agent':'Togoversikt.no/1.0'}
   });
   const xml=await response.text();
-  const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode,trainNumbers):xml,{
+  const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode,trainNumbers,!fullJourney):xml,{
     status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=600','X-Togoversikt-Upstream':'Bane NOR SIRI PT'}
+  });
+  if(cache && response.ok) {
+    const stored=cache.put(request,result.clone());
+    if(ctx?.waitUntil) ctx.waitUntil(stored); else await stored;
+  }
+  return result;
+}
+
+async function proxyEstimatedTimetable(request, ctx) {
+  const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
+  if(locationCode && !/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Ugyldig stedskode'},{status:400});
+  const cache=typeof caches!=='undefined' ? caches.default : null;
+  const cached=cache ? await cache.match(request) : null;
+  if(cached) return cached;
+  const upstream=new URL(`${SIRI}/et/EstimatedTimetable.xml`);
+  copyParams(incoming.searchParams,upstream.searchParams,[
+    'PreviewInterval','OperatorRef','ServiceFeatureRef',
+    'Lines.LineDirection.LineRef','Lines.LineDirection.DirectionRef',
+  ]);
+  const response=await fetchUpstream(upstream.toString(),{
+    cf:{cacheEverything:true,cacheTtlByStatus:{'200-299':30,'300-599':0}},headers:{'User-Agent':'Togoversikt.no/1.0'}
+  });
+  const xml=await response.text();
+  const result=new Response(response.ok && locationCode?filterEstimatedTimetableXml(xml,locationCode):xml,{
+    status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=30','X-Togoversikt-Upstream':'Bane NOR SIRI ET'}
   });
   if(cache && response.ok) {
     const stored=cache.put(request,result.clone());
@@ -186,7 +217,7 @@ async function dailyGraphNumbers(date, locationCode, ctx, store, requestedLine=n
 
 async function warmDailyGraphCache(date, ctx, store) {
   const tasks=Array.from({length:DAILY_GRAPH_COUNT},(_,index)=>index+1).flatMap(line=>{
-    const parts=line===6?12:1;
+    const parts=graphParts(line);
     return Array.from({length:parts},(_,index)=>({line,part:index+1,parts}));
   });
   let cursor=0, completed=0;
@@ -228,9 +259,12 @@ async function dailyGraphMatches(request, ctx, store) {
     if(!previous || train.route.length>previous.route.length) deduped.set(key,train);
     return deduped;
   },new Map()).values()];
+  const operationalSections=data.operational_sections.filter(section=>(section.section_codes || []).includes(locationCode));
+  const operationalTrainKeys=new Set(operationalSections.map(section=>`${section.line_number}:${section.train_no}`));
+  const operationalMarkers=data.operational_markers.filter(marker=>operationalTrainKeys.has(`${marker.line_number}:${marker.train_no}`));
   return Response.json({date,trains:matchCandidateTrainNumbers(candidates,data.numbers),graphs_loaded:data.graphs_loaded,
     graphs_expected:data.graphs_expected,source_time:data.source_time,possible_work_trains:possibleWorkTrains,
-    checked_at:data.checked_at,operational_markers:data.operational_markers,operational_sections:data.operational_sections},{
+    checked_at:data.checked_at,operational_markers:operationalMarkers,operational_sections:operationalSections},{
     headers:{'Cache-Control':'public, max-age=300'}
   });
 }
@@ -279,10 +313,7 @@ export default {
       ], 30);
     }
     if (url.pathname === '/api/et') {
-      return proxyXml(request, `${SIRI}/et/EstimatedTimetable.xml`, [
-        'PreviewInterval', 'OperatorRef', 'ServiceFeatureRef',
-        'Lines.LineDirection.LineRef', 'Lines.LineDirection.DirectionRef',
-      ], 30);
+      return proxyEstimatedTimetable(request,ctx);
     }
     if (url.pathname === '/api/pt') {
       return proxyProductionTimetable(request,ctx);

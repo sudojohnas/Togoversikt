@@ -15,6 +15,7 @@ const arr = value => value == null ? [] : Array.isArray(value) ? value : [value]
 const LIVE_LOOKBACK_MINUTES = 360;
 const UNCONFIRMED_OVERDUE_MINUTES = 30;
 const DAILY_GRAPH_URL = 'https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/';
+const SPLIT_GRAPH_LINES = new Set([7,23,24,25]);
 export const DAILY_GRAPH_NAMES = {
   1:'Lillestrøm–Charlottenberg', 2:'Kongsvinger–Elverum', 3:'Skøyen–Oslo S–Gjøvik', 4:'Myrdal–Flåm',
   5:'Hønefoss–Bergen', 6:'Oslo S–Drammen', 7:'Skøyen–Oslo S–Eidsvoll', 8:'Eidsvoll–Dombås',
@@ -27,8 +28,12 @@ export const DAILY_GRAPH_NAMES = {
 let locationsPromise = null;
 let liveEtCache = null;
 let togkartCache = null;
+let liveEtPromise = null;
+let togkartPromise = null;
 const planCache = new Map();
 const filteredEtCache = new Map();
+const locationEtCache = new Map();
+const dailyGraphCache = new Map();
 
 export function dailyGraphUrl(date,line) {
   const url=new URL(DAILY_GRAPH_URL);
@@ -449,28 +454,67 @@ async function fetchText(url) { const r=await fetch(url); const text=await r.tex
 async function fetchJson(url) { const r=await fetch(url); const data=await r.json(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return data; }
 async function getTogkart(force=false) {
   if(!force && togkartCache && Date.now()-togkartCache.ts<20000) return togkartCache.data;
-  const data=await parseTogkart(await fetchJson('/api/togkart'));
-  togkartCache={ts:Date.now(),data}; return data;
+  if(!force && togkartPromise) return togkartPromise;
+  const promise=(async()=>{
+    const data=await parseTogkart(await fetchJson('/api/togkart'));
+    togkartCache={ts:Date.now(),data}; return data;
+  })();
+  if(!force) togkartPromise=promise;
+  try { return await promise; }
+  finally { if(togkartPromise===promise) togkartPromise=null; }
 }
 async function getLiveEt(force=false) {
   if(!force && liveEtCache && Date.now()-liveEtCache.ts<45000) return liveEtCache.data;
-  const data=parseEt(await fetchText('/api/et')); liveEtCache={ts:Date.now(),data}; return data;
+  if(!force && liveEtPromise) return liveEtPromise;
+  const promise=(async()=>{
+    const data=parseEt(await fetchText('/api/et')); liveEtCache={ts:Date.now(),data}; return data;
+  })();
+  if(!force) liveEtPromise=promise;
+  try { return await promise; }
+  finally { if(liveEtPromise===promise) liveEtPromise=null; }
 }
 async function getFilteredEt(item, force=false) {
   const key=[item.operator_code,item.line,item.direction_ref].join('|'); const cached=filteredEtCache.get(key);
-  if(!force && cached && Date.now()-cached.ts<45000) return cached.data;
+  if(!force && cached && Date.now()-cached.ts<45000) return cached.data || cached.promise;
   const p=new URLSearchParams(); if(item.operator_code) p.set('OperatorRef',item.operator_code);
   if(item.line) p.set('Lines.LineDirection.LineRef',item.line); if(item.direction_ref) p.set('Lines.LineDirection.DirectionRef',item.direction_ref);
-  const data=parseEt(await fetchText(`/api/et?${p}`)); filteredEtCache.set(key,{ts:Date.now(),data}); return data;
+  const entry={ts:Date.now()};
+  entry.promise=(async()=>{
+    const data=parseEt(await fetchText(`/api/et?${p}`)); filteredEtCache.set(key,{ts:Date.now(),data}); return data;
+  })();
+  if(!force) filteredEtCache.set(key,entry);
+  try { return await entry.promise; }
+  catch(error) { if(filteredEtCache.get(key)===entry) filteredEtCache.delete(key); throw error; }
 }
-async function getPlan(date, locationCode, force=false, trainNumbers=[]) {
+async function getLocationEt(locationCode) {
+  const key=String(locationCode || '').toUpperCase(), cached=locationEtCache.get(key);
+  if(cached && Date.now()-cached.ts<45000) return cached.data || cached.promise;
+  const entry={ts:Date.now()};
+  const p=new URLSearchParams({StopPointRef:key});
+  entry.promise=(async()=>{
+    const data=parseEt(await fetchText(`/api/et?${p}`));
+    locationEtCache.set(key,{ts:Date.now(),data});
+    return data;
+  })();
+  locationEtCache.set(key,entry);
+  try { return await entry.promise; }
+  catch(error) { if(locationEtCache.get(key)===entry) locationEtCache.delete(key); throw error; }
+}
+async function getPlan(date, locationCode, force=false, trainNumbers=[], fullJourney=false) {
   const requested=[...new Set(trainNumbers.map(String).filter(value=>/^\d{1,6}$/.test(value)))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  const key=`${date}|${locationCode}|${requested.join(',')}`;
-  const cached=planCache.get(key); if(!force && cached && Date.now()-cached.ts<600000) return cached.data;
+  const key=`${date}|${locationCode}|${requested.join(',')}|${fullJourney?'full':'compact'}`;
+  const cached=planCache.get(key); if(!force && cached && Date.now()-cached.ts<600000) return cached.data || cached.promise;
   const p=new URLSearchParams({'ValidityPeriod.StartTime':zonedIso(addDays(date,-1),'16:00'),'ValidityPeriod.EndTime':zonedIso(addDays(date,1),'00:00')});
   p.set('StopPointRef',locationCode);
   if(requested.length) p.set('TrainNumbers',requested.join(','));
-  const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(key,{ts:Date.now(),data}); return data;
+  if(fullJourney) p.set('IncludeFullJourney','true');
+  const entry={ts:Date.now()};
+  entry.promise=(async()=>{
+    const data=parsePt(await fetchText(`/api/pt?${p}`)); planCache.set(key,{ts:Date.now(),data}); return data;
+  })();
+  if(!force) planCache.set(key,entry);
+  try { return await entry.promise; }
+  catch(error) { if(planCache.get(key)===entry) planCache.delete(key); throw error; }
 }
 
 export function metadataJourneyForTrain(journeys=[], trainNo, date) {
@@ -567,18 +611,23 @@ export function buildGraphOperationalNotices(graphData, date, locationCode, loca
   }
   return notices;
 }
-async function getDailyGraphs(date, locationCode, trains) {
+async function getDailyGraphs(date, locationCode) {
+  const cacheKey=`${date}|${locationCode}`;
+  const cached=dailyGraphCache.get(cacheKey);
+  if(cached && Date.now()-cached.ts<300000) return cached.data || cached.promise;
+  const entry={ts:Date.now()};
+  entry.promise=(async()=>{
   const lineParams=new URLSearchParams({location:locationCode});
   const manifest=await fetchJson(`/api/daily-graph-lines?${lineParams}`);
   const lines=Array.isArray(manifest.lines) ? manifest.lines : [];
-  // Oslo S–Drammen is the one graph large enough to exceed a Worker's memory
-  // budget. One PDF page per request keeps nationwide graph coverage reliable.
   const requests=lines.flatMap(line=>{
-    const parts=Number(line)===6?12:2;
+    // Oslo S–Drammen må deles for Worker-minnet. De øvrige grafene er små nok
+    // til å behandles samlet, som halverer antall rutegrafkall for de linjene.
+    const parts=Number(line)===6?12:SPLIT_GRAPH_LINES.has(Number(line))?2:1;
     return Array.from({length:parts},(_,index)=>({line,part:index+1,parts}));
   });
   const responses=await Promise.all(requests.map(async ({line,part,parts})=>{
-    const p=new URLSearchParams({date,location:locationCode,trains:trains.join(','),line:String(line),part:String(part),parts:String(parts)});
+    const p=new URLSearchParams({date,location:locationCode,line:String(line),part:String(part),parts:String(parts)});
     for(let attempt=0;attempt<3;attempt++) {
       try { return await fetchJson(`/api/daily-graphs?${p}`); }
       catch { if(attempt<2) await new Promise(resolve=>setTimeout(resolve,150*(attempt+1))); }
@@ -586,11 +635,20 @@ async function getDailyGraphs(date, locationCode, trains) {
     return null;
   }));
   return mergeDailyGraphResponses(responses,requests.length);
+  })();
+  dailyGraphCache.set(cacheKey,entry);
+  try {
+    const data=await entry.promise;
+    dailyGraphCache.set(cacheKey,{ts:Date.now(),data});
+    return data;
+  } catch(error) {
+    if(dailyGraphCache.get(cacheKey)===entry) dailyGraphCache.delete(cacheKey);
+    throw error;
+  }
 }
 async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType, today) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
-  const trains=[...new Set(items.map(item=>item.train_no).filter(Boolean))];
-  const response=await getDailyGraphs(date,locationCode,trains);
+  const response=await getDailyGraphs(date,locationCode);
   if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
   const possibleWorkTrains=response.possible_work_trains || [];
   const cancelledGraphNumbers=new Set(possibleWorkTrains.filter(train=>train.cancelled_hint).map(train=>String(train.train_no)));
@@ -664,20 +722,14 @@ function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
 }
-async function enrichTogkartMetadata(items) {
+async function enrichTogkartMetadata(items, locationCode) {
   if(!items.length) return items;
-  const groups=new Map();
-  for(const item of items) {
-    const key=[item.operator_code,item.line].join('|');
-    if(item.operator_code && item.line && !groups.has(key)) groups.set(key,{...item,direction_ref:''});
-  }
-  const datasets=new Map();
-  await Promise.all([...groups.entries()].map(async ([key,item])=>{
-    try { datasets.set(key,await getFilteredEt(item)); } catch { datasets.set(key,null); }
-  }));
+  let dataset;
+  try { dataset=await getLocationEt(locationCode); } catch { dataset=null; }
+  if(!dataset?.journeys?.length) return items;
+  const journeys=new Map(dataset.journeys.map(journey=>[journey.journey_id,journey]));
   return items.map(item=>{
-    const dataset=datasets.get([item.operator_code,item.line].join('|'));
-    const meta=dataset?.journeys?.find(j=>j.journey_id===item.journey_id);
+    const meta=journeys.get(item.journey_id);
     if(!meta) return item;
     const routeNames=new Map(meta.route.filter(call=>call.name && call.name!==call.code).map(call=>[call.code,call.name]));
     return {...item,
@@ -696,19 +748,11 @@ export function enrichJourneyRouteNames(journey, metadataJourney) {
 
 async function enrichSmItems(items, locationCode, eventType) {
   if(!items.length) return items;
-  const groups=new Map();
-  for(const item of items) {
-    const key=[item.operator_code,item.line,item.direction_ref].join('|');
-    if(!groups.has(key)) groups.set(key,item);
-  }
-  const datasets=new Map();
-  await Promise.all([...groups.entries()].map(async ([key,item]) => {
-    try { datasets.set(key,await getFilteredEt(item)); } catch { datasets.set(key,null); }
-  }));
+  let dataset;
+  try { dataset=await getLocationEt(locationCode); } catch { return items; }
+  const journeys=new Map(dataset.journeys.map(journey=>[journey.journey_id,journey]));
   return items.map(item => {
-    const key=[item.operator_code,item.line,item.direction_ref].join('|');
-    const dataset=datasets.get(key);
-    const journey=dataset?.journeys?.find(j=>j.journey_id===item.journey_id);
+    const journey=journeys.get(item.journey_id);
     if(!journey) return item;
     const call=selectedCall(journey,locationCode);
     if(!call) return item;
@@ -745,8 +789,10 @@ export function combineEventItems(arrivalItems=[],departureItems=[]) {
 }
 export async function queryTrains({locationCode,location,date,fromTime,toTime,today,eventType='arrival'}) {
   if(eventType==='both') {
-    const arrival=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'arrival'});
-    const departure=await queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'departure'});
+    const [arrival,departure]=await Promise.all([
+      queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'arrival'}),
+      queryTrains({locationCode,location,date,fromTime,toTime,today,eventType:'departure'}),
+    ]);
     const notices=[...new Map([...(arrival.operational_notices || []),...(departure.operational_notices || [])].map(notice=>[notice.id,notice])).values()];
     return {...arrival,items:combineEventItems(arrival.items,departure.items),operational_notices:notices,
       source_time:[arrival.source_time,departure.source_time].filter(Boolean).sort().at(-1) || null};
@@ -761,7 +807,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         getGraphItems(locationCode,date,fromTime,toTime,eventType,today),
         (async()=>{ try {
           const live=await getTogkart();
-          return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType))};
+          return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType),locationCode)};
         } catch { return null; } })(),
       ]);
       const etItems=et ? queryDataset(et,locationCode,date,fromTime,toTime,false,eventType) : [];
@@ -786,7 +832,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         const live=await getTogkart();
         // Keep today's completed calls until after merging so their actual times can
         // replace stale Stop Monitoring entries before the final time filter.
-        return {items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,strictStart?fromTime:'00:00',toTime,!strictStart,eventType)),time:live.source_time};
+        return {items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,strictStart?fromTime:'00:00',toTime,!strictStart,eventType),locationCode),time:live.source_time};
       } catch { return {items:[],time:null}; } })(),
     ]);
     const smItems=smResult.items, smTime=smResult.time, liveItems=liveResult.items, liveTime=liveResult.time;
@@ -853,7 +899,7 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
     if(liveJourney) return detailFromJourney(liveJourney,locationCode,dataset.source_time);
     // A planned journey may be absent from every live feed, for example when
     // it is cancelled before Togkart starts publishing it.
-    dataset=await getPlan(date,locationCode,force);
-  } else dataset=await getPlan(date,locationCode,force);
+    dataset=await getPlan(date,locationCode,force,item?.train_no?[item.train_no]:[],true);
+  } else dataset=await getPlan(date,locationCode,force,item?.train_no?[item.train_no]:[],true);
   return detailFromJourney(dataset.journeys.find(x=>x.journey_id===journeyId),locationCode,dataset.source_time);
 }
