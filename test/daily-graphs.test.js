@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDailyGraphData, graphPageLayout, graphResponseVersion, graphStrokeHints, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
+import { extractDailyGraphData, graphPageLayout, graphResponseVersion, graphSegmentCancelled, graphStrokeHints, graphUrl, matchCandidateTrainNumbers, matchGraphPathLabel } from '../src/daily-graphs.js';
 
 test('builds the public Bane NOR daily graph URL', () => {
   const url=new URL(graphUrl('2026-09-28',11));
@@ -59,4 +59,16 @@ test('treats yellow and light-brown graph paths as cancelled', () => {
   assert.equal(graphStrokeHints('#ffaa00','102').cancelled_hint,true);
   assert.equal(graphStrokeHints('#aa5500','102').cancelled_hint,false);
   assert.deepEqual(graphStrokeHints('#0000ff','54702'),{work_hint:true,cancelled_hint:false});
+});
+
+test('requires cancellation color to dominate the matched train path', () => {
+  assert.equal(graphSegmentCancelled([
+    ...Array.from({length:20},()=>({cancelled_hint:false})),
+    ...Array.from({length:3},()=>({cancelled_hint:true})),
+  ]),false);
+  assert.equal(graphSegmentCancelled([
+    ...Array.from({length:4},()=>({cancelled_hint:false})),
+    ...Array.from({length:17},()=>({cancelled_hint:true})),
+  ]),true);
+  assert.equal(graphSegmentCancelled(Array.from({length:21},()=>({cancelled_hint:true}))),true);
 });

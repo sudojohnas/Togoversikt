@@ -128,6 +128,15 @@ export function graphStrokeHints(stroke, trainNo='') {
   };
 }
 
+export function graphSegmentCancelled(segment=[]) {
+  const colorObservations=segment.filter(item=>typeof item.cancelled_hint==='boolean');
+  if(!colorObservations.length) return false;
+  const cancelled=colorObservations.filter(item=>item.cancelled_hint).length;
+  // En nærliggende gul arbeidslinje kan feilaktig bli koblet til ett punkt på
+  // en svart toglinje. Krev derfor at innstillingsfargen dominerer hele ruten.
+  return cancelled/colorObservations.length>=0.6;
+}
+
 function pathCrossingOccurrences(segments, labels, stations, hours, page, line) {
   const minX=hours[0].x-3, maxX=hours.at(-1).x+3;
   const minY=Math.min(...stations.map(station=>station.y))-3;
@@ -252,7 +261,7 @@ async function possibleWorkTrainsFromDocument(pdf, pages, date, line, knownStati
       if(!route.length) continue;
       trains.push({journey_id:`graph:${date}:${line}:${trainNo}:${route[0].time}:${segmentIndex+1}`,train_no:trainNo,line_number:line,
         origin_code:route[0].code,destination_code:route.at(-1).code,work_hint:segment.some(item=>item.work_hint),
-        cancelled_hint:segment.some(item=>item.cancelled_hint),route});
+        cancelled_hint:graphSegmentCancelled(segment),route});
     }
   }
   return {trains,operational_markers:occurrences.map(item=>({
