@@ -168,10 +168,13 @@ function timeCell(x) {
 function statusCell(x) {
   const s = String(x.status || '');
   const passing = x.passing ? '<span class="desktop-passing">Passerende</span>' : '';
+  const fetched = new Date(x.graph_checked_at || '');
+  const fetchedLabel = Number.isNaN(fetched.getTime()) ? ''
+    : `kl. ${localTime(fetched)} ${localDate(fetched) === localDate(new Date()) ? 'i dag' : osloShortDateFmt.format(fetched)}`;
+  if (s.includes('Innstilt') && x.graph_cancelled) {
+    return `<strong>Innstilt</strong><small>Funnet innstilt i rutegraf${fetchedLabel ? ` · ${esc(fetchedLabel)}` : ''}</small>`;
+  }
   if (x.graph_only) {
-    const fetched = new Date(x.graph_checked_at || '');
-    const fetchedLabel = Number.isNaN(fetched.getTime()) ? ''
-      : `kl. ${localTime(fetched)} ${localDate(fetched) === localDate(new Date()) ? 'i dag' : osloShortDateFmt.format(fetched)}`;
     return `${passing}<strong>Hentet fra rutegraf</strong><small>${fetchedLabel ? `${esc(fetchedLabel)} · ` : ''}Ingen sanntidsdata</small>`;
   }
   const graph = x.graph_fallback ? '<small>Hentet fra rutegraf</small>' : '';
@@ -404,6 +407,11 @@ async function openDetail(itemKey, force=false) {
       force,
     });
     if (!x) throw new Error('Toget finnes ikke lenger i datasettet');
+    if (item?.graph_cancelled) {
+      x.status = 'Innstilt ifølge rutegraf';
+      x.source_url = item.graph_url || x.source_url;
+      x.route = (x.route || []).map(stop => stop.selected ? {...stop,status:'Innstilt'} : stop);
+    }
     const route = (x.route || []).map(stop => {
       const cls = stop.state === 'current' ? 'current' : stop.state === 'recorded' ? 'passed' : 'upcoming';
       const code = stop.code && stop.code !== stop.name ? ` <small>(${esc(stop.code)})</small>` : '';

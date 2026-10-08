@@ -29,7 +29,7 @@ test('returns the configured graph lines without parsing PDFs', async () => {
   assert.deepEqual(await skotterud.json(),{location:'SKO',lines:[1]});
 });
 
-test('scheduled updates warm every graph and split the large Oslo graph', async () => {
+test('scheduled updates warm today every quarter and tomorrow every hour', async () => {
   const originalFetch=globalThis.fetch;
   const calls=[];
   globalThis.fetch=async (_url,options={})=>{
@@ -47,8 +47,13 @@ test('scheduled updates warm every graph and split the large Oslo graph', async 
   try {
     await worker.scheduled({scheduledTime:Date.parse('2026-10-08T02:00:00+02:00')},{ROUTE_GRAPHS:store},ctx);
     await Promise.all(pending);
-    assert.equal(calls.length,40);
+    assert.equal(calls.length,80);
     assert.ok(calls.every(method=>method==='HEAD'));
+    calls.length=0;
+    pending.length=0;
+    await worker.scheduled({scheduledTime:Date.parse('2026-10-08T02:15:00+02:00')},{ROUTE_GRAPHS:store},ctx);
+    await Promise.all(pending);
+    assert.equal(calls.length,40);
   } finally {
     globalThis.fetch=originalFetch;
   }

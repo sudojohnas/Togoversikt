@@ -547,7 +547,29 @@ export function mergeDailyGraphResponses(responses=[], expected=responses.length
 }
 
 function cyclicDistance(start,end) { return (end-start+1440)%1440; }
+function clockDistance(first,second) {
+  if(!/^\d{2}:\d{2}$/.test(first || '') || !/^\d{2}:\d{2}$/.test(second || '')) return Infinity;
+  const forward=cyclicDistance(minutes(first),minutes(second));
+  return Math.min(forward,1440-forward);
+}
 const MIN_OPERATIONAL_SECTION_MINUTES=60;
+
+export function applyGraphCancellations(items=[], graphResult={}, date='', locationCode='') {
+  const cancelled=graphResult.cancelled_graph_trains || [];
+  if(!cancelled.length) return items;
+  return items.map(item=>{
+    const matches=cancelled.filter(train=>String(train.train_no)===String(item.train_no));
+    const graphTrain=matches.map(train=>({train,stop:(train.route || []).find(stop=>stop.code===locationCode)}))
+      .filter(match=>match.stop && clockDistance(match.stop.time,item.planned_time || item.time)<=30)
+      .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time))[0]?.train;
+    if(!graphTrain) return item;
+    const source=String(item.source || '');
+    return {...item,status:'Innstilt ifølge rutegraf',passing:false,graph_cancelled:true,graph_fallback:true,
+      graph_url:dailyGraphUrl(date,graphTrain.line_number),
+      ...((graphResult.checked_at || graphResult.source_time)?{graph_checked_at:graphResult.checked_at || graphResult.source_time}:{}),
+      source:source.includes('rutegraf')?source:`${source}${source?' + ':''}Bane NOR rutegraf`};
+  });
+}
 
 function longestOperationalAnchorSpan(anchors=[]) {
   let longest=0;
@@ -649,21 +671,21 @@ async function getDailyGraphs(date, locationCode) {
 async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, eventType, today) {
   const items=queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType);
   const response=await getDailyGraphs(date,locationCode);
-  if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
+  if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time,cancelled_graph_trains:[]};
   const possibleWorkTrains=response.possible_work_trains || [];
-  const cancelledGraphNumbers=new Set(possibleWorkTrains.filter(train=>train.cancelled_hint).map(train=>String(train.train_no)));
-  const eligibleWorkTrains=possibleWorkTrains.filter(train=>!train.cancelled_hint);
+  const cancelledGraphTrains=possibleWorkTrains.filter(train=>train.cancelled_hint);
   // SIRI PT is the primary plan. A daily graph may add pass-through trains,
   // but must never turn a departure-only SIRI call into a guessed arrival (or
   // vice versa) merely because the current board filters out the other event.
   // Yellow and light-brown graph paths mean cancelled and withdrawn trains;
   // they must also override an otherwise present SIRI timetable entry.
-  const confirmed=items.filter(item=>!cancelledGraphNumbers.has(String(item.train_no)));
+  const graphResult={...response,cancelled_graph_trains:cancelledGraphTrains};
+  const confirmed=applyGraphCancellations(items,graphResult,date,locationCode);
   const siriCallNumbers=new Set(plan.journeys.filter(journey=>{
     const call=selectedCall(journey,locationCode);
     return call && [call.aimed_arrival_iso,call.aimed_departure_iso,call.planned_iso].some(value=>isoDate(value)===date);
   }).map(journey=>String(journey.train_no)));
-  const missingNumbers=[...new Set(eligibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!siriCallNumbers.has(number)))];
+  const missingNumbers=[...new Set(possibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!siriCallNumbers.has(number)))];
   let metadataPlan={journeys:[]};
   if(missingNumbers.length) {
     try { metadataPlan=await getPlan(date,locationCode,false,missingNumbers); } catch {}
@@ -673,8 +695,8 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     try { cancelledNumbers=cancelledTrainNumbersForDate((await getLiveEt()).journeys,missingNumbers,date); } catch {}
   }
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
-  const graphOnly=eligibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no)) &&
-    !cancelledNumbers.has(String(train.train_no))).flatMap(train=>{
+  const graphOnly=possibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no)) &&
+    (train.cancelled_hint || !cancelledNumbers.has(String(train.train_no)))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
     const metadata=metadataJourneyForTrain(metadataPlan.journeys,train.train_no,date);
@@ -692,14 +714,16 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
       graph_fallback:true,graph_only:true,graph_route:route,graph_url:dailyGraphUrl(date,train.line_number),
       ...((response.checked_at || response.source_time)?{graph_checked_at:response.checked_at || response.source_time}:{})}];
   });
-  return {items:[...confirmed,...graphOnly].sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
-    operational_notices:buildGraphOperationalNotices(response,date,locationCode,locationItems),source_time:plan.source_time};
+  const combined=applyGraphCancellations([...confirmed,...graphOnly],graphResult,date,locationCode);
+  return {items:combined.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
+    operational_notices:buildGraphOperationalNotices(response,date,locationCode,locationItems),source_time:plan.source_time,
+    cancelled_graph_trains:cancelledGraphTrains,checked_at:response.checked_at,graph_source_time:response.source_time};
 }
 async function getGraphItems(locationCode,date,fromTime,toTime,eventType,today) {
   let plan={journeys:[],source_time:null};
   try { plan=await getPlan(date,locationCode); } catch {}
   try { return await graphFallbackItems(plan,locationCode,date,fromTime,toTime,eventType,today); }
-  catch { return {items:queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType),operational_notices:[],source_time:plan.source_time}; }
+  catch { return {items:queryDataset(plan,locationCode,date,fromTime,toTime,false,eventType),operational_notices:[],source_time:plan.source_time,cancelled_graph_trains:[]}; }
 }
 function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false, eventType='arrival') {
   const root=parser.parse(xml); const service=root?.Siri?.ServiceDelivery || {};
@@ -812,11 +836,11 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       ]);
       const etItems=et ? queryDataset(et,locationCode,date,fromTime,toTime,false,eventType) : [];
       if(liveResult) {
-        const items=mergeLiveItems(graphResult.items,etItems,liveResult.items)
+        const items=applyGraphCancellations(mergeLiveItems(graphResult.items,etItems,liveResult.items),graphResult,date,locationCode)
           .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
         return {items,operational_notices:graphResult.operational_notices,source_time:et?.source_time || liveResult.live.source_time || null,mode:'live',location,location_code:locationCode,date};
       }
-      return {items:mergeLiveItems(graphResult.items,etItems),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
+      return {items:applyGraphCancellations(mergeLiveItems(graphResult.items,etItems),graphResult,date,locationCode),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
@@ -837,12 +861,12 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     ]);
     const smItems=smResult.items, smTime=smResult.time, liveItems=liveResult.items, liveTime=liveResult.time;
     if(graphResult.items.length || smItems.length || liveItems.length) {
-      const items=filterLiveItems(mergeLiveItems(graphResult.items,smItems,liveItems),fromTime,toTime,!strictStart)
+      const items=filterLiveItems(applyGraphCancellations(mergeLiveItems(graphResult.items,smItems,liveItems),graphResult,date,locationCode),fromTime,toTime,!strictStart)
         .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
       return {items,operational_notices:graphResult.operational_notices,source_time:smTime || liveTime,mode:'live',location,location_code:locationCode,date};
     }
     const et=await getLiveEt();
-    const items=filterLiveItems(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),fromTime,toTime,!strictStart);
+    const items=filterLiveItems(applyGraphCancellations(queryDataset(et,locationCode,date,fromTime,toTime,!strictStart,eventType),graphResult,date,locationCode),fromTime,toTime,!strictStart);
     return {items,operational_notices:graphResult.operational_notices,source_time:et.source_time,mode:'live',location,location_code:locationCode,date};
   }
   const graphResult=await getGraphItems(locationCode,date,fromTime,toTime,eventType,today);
@@ -850,7 +874,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     let et=null;
     try { et=await getLiveEt(); } catch {}
     const liveItems=et?queryDataset(et,locationCode,date,fromTime,toTime,false,eventType):[];
-    return {items:mergeLiveItems(graphResult.items,liveItems).sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
+    return {items:applyGraphCancellations(mergeLiveItems(graphResult.items,liveItems),graphResult,date,locationCode).sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
       operational_notices:graphResult.operational_notices,source_time:et?.source_time || graphResult.source_time || null,mode:et?'live':'planned',location,location_code:locationCode,date};
   }
   return {items:graphResult.items,operational_notices:graphResult.operational_notices,source_time:graphResult.source_time,mode:'planned',location,location_code:locationCode,date};

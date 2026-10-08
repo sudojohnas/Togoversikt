@@ -426,7 +426,7 @@ test('labels blue graph trains as Bane NOR ordered and other unknown graph train
   }
 });
 
-test('does not add graph trains marked yellow as cancelled', async () => {
+test('shows graph-only trains marked yellow as cancelled with their source', async () => {
   const originalFetch=globalThis.fetch;
   const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
   const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
@@ -443,13 +443,17 @@ test('does not add graph trains marked yellow as cancelled', async () => {
   };
   try {
     const result=await queryTrains({locationCode:'KAM',location:'Kambo',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
-    assert.deepEqual(result.items,[]);
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].train_no,'102');
+    assert.equal(result.items[0].status,'Innstilt ifølge rutegraf');
+    assert.equal(result.items[0].graph_cancelled,true);
+    assert.equal(result.items[0].graph_url,dailyGraphUrl('2099-01-05',24));
   } finally {
     globalThis.fetch=originalFetch;
   }
 });
 
-test('removes a planned SIRI train when the graph marks it cancelled', async () => {
+test('marks a planned SIRI train as cancelled when the graph says so', async () => {
   const originalFetch=globalThis.fetch;
   const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>102:2099-01-05</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>KAM</StopPointRef><StopPointName>Kambo</StopPointName><AimedDepartureTime>2099-01-05T05:13:00+01:00</AimedDepartureTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
   const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
@@ -465,7 +469,10 @@ test('removes a planned SIRI train when the graph marks it cancelled', async () 
   };
   try {
     const result=await queryTrains({locationCode:'KAM',location:'Kambo',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
-    assert.deepEqual(result.items,[]);
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].train_no,'102');
+    assert.equal(result.items[0].status,'Innstilt ifølge rutegraf');
+    assert.equal(result.items[0].graph_cancelled,true);
   } finally {
     globalThis.fetch=originalFetch;
   }
@@ -598,22 +605,28 @@ test('does not build a notice for a short section occupation', () => {
   assert.equal(result.length,0);
 });
 
-test('uses next-day ET cancellation status instead of the uncancelled plan', async () => {
+test('lets a next-day graph cancellation override uncancelled ET data', async () => {
   const originalFetch=globalThis.fetch;
   const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourney><DatedVehicleJourneyCode>139:2026-10-07</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalPlatformName>1</ArrivalPlatformName></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
-  const et='<Siri><ServiceDelivery><EstimatedTimetableDelivery><ResponseTimestamp>2026-10-06T23:40:00+02:00</ResponseTimestamp><EstimatedJourneyVersionFrame><EstimatedVehicleJourney><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourneyRef>139:2026-10-07</DatedVehicleJourneyRef><Cancellation>true</Cancellation><OriginName>Oslo S</OriginName><DestinationName>Halden</DestinationName><OperatorRef>VY</OperatorRef><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><VehicleRef>139</VehicleRef><EstimatedCalls><EstimatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><Cancellation>true</Cancellation><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalStatus>cancelled</ArrivalStatus><ArrivalPlatformName>1</ArrivalPlatformName></EstimatedCall></EstimatedCalls></EstimatedVehicleJourney></EstimatedJourneyVersionFrame></EstimatedTimetableDelivery></ServiceDelivery></Siri>';
+  const et='<Siri><ServiceDelivery><EstimatedTimetableDelivery><ResponseTimestamp>2026-10-06T23:40:00+02:00</ResponseTimestamp><EstimatedJourneyVersionFrame><EstimatedVehicleJourney><LineRef>RE20</LineRef><DirectionRef>HLD</DirectionRef><DatedVehicleJourneyRef>139:2026-10-07</DatedVehicleJourneyRef><OriginName>Oslo S</OriginName><DestinationName>Halden</DestinationName><OperatorRef>VY</OperatorRef><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><VehicleRef>139</VehicleRef><EstimatedCalls><EstimatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2026-10-07T02:01:00+02:00</AimedArrivalTime><ArrivalPlatformName>1</ArrivalPlatformName></EstimatedCall></EstimatedCalls></EstimatedVehicleJourney></EstimatedJourneyVersionFrame></EstimatedTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={graphs_loaded:1,graphs_expected:1,checked_at:'2026-10-06T23:45:00+02:00',possible_work_trains:[{
+    journey_id:'graph:139',train_no:'139',line_number:24,origin_code:'SKD',destination_code:'HLD',cancelled_hint:true,
+    route:[{code:'HLD',time:'02:01',minute:121}],
+  }]};
   globalThis.fetch=async url=>{
     const path=String(url);
     if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
     if(path.startsWith('/api/et')) return new Response(et,{status:200});
-    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[]});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
     throw new Error(`Uventet kall: ${path}`);
   };
   try {
     const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2026-10-07',today:'2026-10-06',fromTime:'00:00',toTime:'03:00'});
     assert.equal(result.items.length,1);
     assert.equal(result.items[0].train_no,'139');
-    assert.equal(result.items[0].status,'Innstilt');
+    assert.equal(result.items[0].status,'Innstilt ifølge rutegraf');
+    assert.equal(result.items[0].graph_cancelled,true);
   } finally {
     globalThis.fetch=originalFetch;
   }

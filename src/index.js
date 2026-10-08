@@ -18,6 +18,12 @@ function graphParts(line) {
   return Number(line)===6?12:SPLIT_GRAPH_LINES.has(Number(line))?2:1;
 }
 
+function addDateDays(date,days) {
+  const value=new Date(`${date}T12:00:00Z`);
+  value.setUTCDate(value.getUTCDate()+days);
+  return value.toISOString().slice(0,10);
+}
+
 function copyParams(source, target, allowed) {
   for (const key of allowed) {
     for (const value of source.getAll(key)) target.append(key, value);
@@ -330,6 +336,10 @@ export default {
   async scheduled(controller, env, ctx) {
     const scheduledAt=Number.isFinite(controller?.scheduledTime)?new Date(controller.scheduledTime):new Date();
     const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(scheduledAt);
-    ctx.waitUntil(warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS));
+    const tasks=[warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS)];
+    // Neste dags grafer kontrolleres hver hele time, slik at innstillinger er
+    // klare før noen åpner oversikten. Dagens grafer kontrolleres hvert kvarter.
+    if(scheduledAt.getUTCMinutes()===0) tasks.push(warmDailyGraphCache(addDateDays(date,1),ctx,env.ROUTE_GRAPHS));
+    ctx.waitUntil(Promise.all(tasks));
   },
 };
