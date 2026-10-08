@@ -106,6 +106,30 @@ test('uses Togkart final-stop position as arrival evidence without inventing an 
   }
 });
 
+test('treats a Togkart movement after terminal arrival as arrival, not departure', async () => {
+  const originalFetch=globalThis.fetch;
+  globalThis.fetch=async url=>String(url)==='/locations.json'
+    ? new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'))
+    : originalFetch(url);
+  try {
+    const data=await parseTogkart({Fares:[{
+      train_no:137,train_id:'137:2026-10-08',origin:'OSL',destination:'HLD',stopindex:1,
+      stops:[
+        {city:'OSL',std:Date.parse('2026-10-08T23:14:00+02:00')/1000,atd:Date.parse('2026-10-08T23:22:55+02:00')/1000},
+        {city:'HLD',sta:Date.parse('2026-10-09T00:46:00+02:00')/1000,
+          ata:Date.parse('2026-10-09T00:48:01+02:00')/1000,atd:Date.parse('2026-10-09T00:57:52+02:00')/1000},
+      ],
+    }]});
+    const journey=data.journeys[0], terminal=journey.route.at(-1);
+    assert.equal(terminal.actual_arrival_iso,'2026-10-09T00:48:01+02:00');
+    assert.equal(terminal.actual_departure_iso,'');
+    assert.equal(callWindowState(terminal,'2026-10-09','00:00','23:59',false,'departure').include,false);
+    assert.equal(journeyCallStatus(journey,terminal,'arrival'),'Ankommet');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
 test('ignores a contradictory delayed flag when the expected time is early', () => {
   const call = {
     ...baseCall,
@@ -529,6 +553,38 @@ test('uses the production timetable when historical ET is temporarily unavailabl
     const result=await queryTrains({locationCode:'OSL',location:'Oslo S',date:'2026-10-06',today:'2026-10-06',fromTime:'00:00',toTime:'13:00'});
     assert.deepEqual(result.items.map(item=>item.train_no),['123']);
     assert.equal(result.items[0].source,'Bane NOR SIRI PT');
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
+test('uses the archived terminal arrival for a previous day', async () => {
+  const originalFetch=globalThis.fetch;
+  const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>137:2099-01-02</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>HLD</StopPointRef><StopPointName>Halden</StopPointName><AimedArrivalTime>2099-01-03T00:46:00+01:00</AimedArrivalTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const archived={archived_at:'2099-01-03T02:00:00+01:00',complete:true,Fares:[{
+    train_no:137,train_id:'137:2099-01-02',origin:'OSL',destination:'HLD',stopindex:1,
+    stops:[
+      {city:'OSL',std:Date.parse('2099-01-02T23:14:00+01:00')/1000,atd:Date.parse('2099-01-02T23:14:00+01:00')/1000},
+      {city:'HLD',sta:Date.parse('2099-01-03T00:46:00+01:00')/1000,ata:Date.parse('2099-01-03T00:48:01+01:00')/1000,
+        atd:Date.parse('2099-01-03T00:57:52+01:00')/1000},
+    ],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path==='/locations.json') return new Response(readFileSync(new URL('../public/locations.json',import.meta.url),'utf8'));
+    if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json({trains:[],possible_work_trains:[],graphs_loaded:1,graphs_expected:1});
+    if(path==='/api/togkart-archive?date=2099-01-03') return Response.json(archived);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2099-01-03',today:'2099-01-04',fromTime:'00:00',toTime:'23:59',eventType:'both'});
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].event_type,'arrival');
+    assert.equal(result.items[0].time,'00:48');
+    assert.equal(result.items[0].status,'Ankommet');
+    assert.equal(result.archive_complete,true);
   } finally {
     globalThis.fetch=originalFetch;
   }

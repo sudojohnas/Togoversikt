@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import worker from '../src/index.js';
+import worker, { archiveTogkart } from '../src/index.js';
 
 test('retries a transient SIRI 503 once', async () => {
   const originalFetch=globalThis.fetch;
@@ -55,13 +55,49 @@ test('scheduled updates warm today every quarter and tomorrow every hour', async
   try {
     await worker.scheduled({scheduledTime:Date.parse('2026-10-08T02:00:00+02:00')},{ROUTE_GRAPHS:store},ctx);
     await Promise.all(pending);
-    assert.equal(calls.length,80);
-    assert.ok(calls.every(method=>method==='HEAD'));
+    assert.equal(calls.filter(method=>method==='HEAD').length,80);
+    assert.equal(calls.filter(method=>method==='GET').length,1);
     calls.length=0;
     pending.length=0;
     await worker.scheduled({scheduledTime:Date.parse('2026-10-08T02:15:00+02:00')},{ROUTE_GRAPHS:store},ctx);
     await Promise.all(pending);
-    assert.equal(calls.length,40);
+    assert.equal(calls.filter(method=>method==='HEAD').length,40);
+    assert.equal(calls.filter(method=>method==='GET').length,1);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
+test('archives yesterday until every observed train has reached its terminal', async () => {
+  const originalFetch=globalThis.fetch;
+  const values=new Map();
+  const store={
+    async get(key,type){
+      const value=values.get(key);
+      return type==='json' && value ? JSON.parse(value) : value || null;
+    },
+    async put(key,value){ values.set(key,value); },
+  };
+  let arrived=false;
+  globalThis.fetch=async ()=>Response.json({Fares:[{
+    train_no:137,train_id:'137:2026-10-08',origin:'OSL',destination:'HLD',stopindex:arrived?1:0,
+    stops:[
+      {city:'OSL',std:Date.parse('2026-10-08T23:14:00+02:00')/1000,atd:Date.parse('2026-10-08T23:15:00+02:00')/1000},
+      {city:'HLD',sta:Date.parse('2026-10-09T00:46:00+02:00')/1000,
+        ...(arrived?{ata:Date.parse('2026-10-09T00:48:01+02:00')/1000}: {})},
+    ],
+  }]});
+  try {
+    let result=await archiveTogkart(new Date('2026-10-09T00:15:00+02:00'),store);
+    assert.equal(result.dates.find(item=>item.date==='2026-10-08').complete,false);
+    arrived=true;
+    result=await archiveTogkart(new Date('2026-10-09T00:30:00+02:00'),store);
+    assert.equal(result.dates.find(item=>item.date==='2026-10-08').complete,true);
+    const response=await worker.fetch(new Request('https://togoversikt.no/api/togkart-archive?date=2026-10-08'),{ROUTE_GRAPHS:store},{});
+    const archive=await response.json();
+    assert.equal(response.status,200);
+    assert.equal(archive.complete,true);
+    assert.equal(archive.Fares[0].stops.at(-1).ata,Date.parse('2026-10-09T00:48:01+02:00')/1000);
   } finally {
     globalThis.fetch=originalFetch;
   }

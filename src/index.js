@@ -13,6 +13,8 @@ const GRAPH_PARSER_VERSION = 'v8';
 const TRANSIENT_UPSTREAM_STATUSES = new Set([502, 503, 504]);
 const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjon').map(location=>location.code);
 const SPLIT_GRAPH_LINES = new Set([7,23,24,25]);
+const TOGKART_ARCHIVE_VERSION = 'v1';
+const OSLO_DATE = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
 
 function graphParts(line) {
   return Number(line)===6?12:SPLIT_GRAPH_LINES.has(Number(line))?2:1;
@@ -120,6 +122,69 @@ async function proxyTogkart() {
   headers.set('Cache-Control', 'public, max-age=20');
   headers.set('X-Togoversikt-Upstream', 'Bane NOR Togkart');
   return new Response(response.body, { status: response.status, headers });
+}
+
+function archiveKey(date) {
+  return `togkart-archive:${TOGKART_ARCHIVE_VERSION}:${date}`;
+}
+
+function osloDateFromEpoch(value) {
+  const date=new Date(Number(value)*1000);
+  return Number.isNaN(date.getTime())?null:OSLO_DATE.format(date);
+}
+
+function fareTouchesDate(fare,date) {
+  return (fare?.stops || []).some(stop=>['sta','std','eta','etd','ata','atd']
+    .some(field=>osloDateFromEpoch(stop?.[field])===date));
+}
+
+function fareResolved(fare) {
+  const stops=fare?.stops || [], last=stops.at(-1);
+  if(!last) return false;
+  const cancelled=last.cancel && String(last.cancel).toUpperCase()!=='N';
+  return Boolean(last.ata || cancelled || (Number.isInteger(Number(fare.stopindex)) && Number(fare.stopindex)>=stops.length-1));
+}
+
+function compactFare(fare) {
+  const fields=['train_no','train_id','origin','destination','stopindex','line_no','company','company_name','train_type','train_kind'];
+  const compact=Object.fromEntries(fields.filter(field=>fare?.[field]!=null).map(field=>[field,fare[field]]));
+  compact.stops=(fare?.stops || []).map(stop=>{
+    const stopFields=['city','planned_track','track','cancel','sta','std','eta','etd','ata','atd','activity'];
+    return Object.fromEntries(stopFields.filter(field=>stop?.[field]!=null).map(field=>[field,stop[field]]));
+  });
+  return compact;
+}
+
+export async function archiveTogkart(scheduledAt, store) {
+  if(!store) return {dates:[],fares:0};
+  const today=OSLO_DATE.format(scheduledAt), yesterday=addDateDays(today,-1);
+  const upstream=new URL(TOGKART);
+  upstream.searchParams.set('timestamp',String(Math.floor(scheduledAt.getTime()/30000)*30+60));
+  const response=await fetchUpstream(upstream.toString(),{headers:{'User-Agent':'Togoversikt.no/1.0'}});
+  if(!response.ok) throw new Error(`Togkart svarte ${response.status}`);
+  const payload=await response.json(), incoming=(payload?.Fares || []).map(compactFare);
+  const results=[];
+  for(const date of [yesterday,today]) {
+    const key=archiveKey(date), existing=await store.get(key,'json');
+    if(existing?.complete) { results.push({date,complete:true,fares:existing.Fares?.length || 0}); continue; }
+    const fares=new Map((existing?.Fares || []).map(fare=>[String(fare.train_id || `${fare.train_no}:${fare.origin_time || ''}`),fare]));
+    for(const fare of incoming.filter(item=>fareTouchesDate(item,date))) {
+      fares.set(String(fare.train_id || `${fare.train_no}:${fare.origin_time || ''}`),fare);
+    }
+    const merged=[...fares.values()], complete=date<today && merged.length>0 && merged.every(fareResolved);
+    const archive={date,Fares:merged,archived_at:scheduledAt.toISOString(),complete};
+    await store.put(key,JSON.stringify(archive));
+    results.push({date,complete,fares:merged.length});
+  }
+  return {dates:results,fares:incoming.length};
+}
+
+async function togkartArchive(request, store) {
+  const date=new URL(request.url).searchParams.get('date') || '';
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
+  const archive=store ? await store.get(archiveKey(date),'json') : null;
+  if(!archive) return Response.json({detail:'Ingen arkiverte sanntidsdata for datoen'},{status:404});
+  return Response.json(archive,{headers:{'Cache-Control':archive.complete?'public, max-age=86400':'public, max-age=60'}});
 }
 
 async function graphContentHash(data) {
@@ -335,6 +400,7 @@ export default {
       return proxyProductionTimetable(request,ctx);
     }
     if (url.pathname === '/api/togkart') return proxyTogkart();
+    if (url.pathname === '/api/togkart-archive') return togkartArchive(request,env.ROUTE_GRAPHS);
     if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx,env.ROUTE_GRAPHS);
     if (url.pathname === '/api/daily-graph-lines') return dailyGraphLines(request);
     if (url.pathname === '/api/nearest') return proxyNearest(request);
@@ -345,8 +411,8 @@ export default {
   },
   async scheduled(controller, env, ctx) {
     const scheduledAt=Number.isFinite(controller?.scheduledTime)?new Date(controller.scheduledTime):new Date();
-    const date=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'}).format(scheduledAt);
-    const tasks=[warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS)];
+    const date=OSLO_DATE.format(scheduledAt);
+    const tasks=[warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS),archiveTogkart(scheduledAt,env.ROUTE_GRAPHS).catch(()=>null)];
     // Neste dags grafer kontrolleres hver hele time, slik at innstillinger er
     // klare før noen åpner oversikten. Dagens grafer kontrolleres hvert kvarter.
     if(scheduledAt.getUTCMinutes()===0) tasks.push(warmDailyGraphCache(addDateDays(date,1),ctx,env.ROUTE_GRAPHS));

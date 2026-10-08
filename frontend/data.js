@@ -34,6 +34,7 @@ const planCache = new Map();
 const filteredEtCache = new Map();
 const locationEtCache = new Map();
 const dailyGraphCache = new Map();
+const togkartArchiveCache = new Map();
 
 export function dailyGraphUrl(date,line) {
   const url=new URL(DAILY_GRAPH_URL);
@@ -279,8 +280,13 @@ export async function parseTogkart(data) {
     const currentIndex=Number(fare.stopindex);
     const route=stops.map((stop,index)=>{
       const aimedArr=epochOsloIso(stop.sta), aimedDep=epochOsloIso(stop.std);
-      const expectedArr=epochOsloIso(stop.eta), expectedDep=epochOsloIso(stop.etd);
-      const actualArr=epochOsloIso(stop.ata), actualDep=epochOsloIso(stop.atd);
+      const expectedArr=epochOsloIso(stop.eta);
+      const actualArr=epochOsloIso(stop.ata);
+      // Togkart can report an operational movement after arrival at the
+      // terminal. Without a scheduled departure it is not a passenger event.
+      const terminalWithoutDeparture=index===stops.length-1 && !aimedDep;
+      const expectedDep=terminalWithoutDeparture?'':epochOsloIso(stop.etd);
+      const actualDep=terminalWithoutDeparture?'':epochOsloIso(stop.atd);
       const planned=aimedDep || aimedArr, expected=expectedDep || expectedArr, actual=actualDep || actualArr;
       const cancelled=stop.cancel && stop.cancel!=='N';
       return {
@@ -473,6 +479,18 @@ async function getTogkart(force=false) {
   if(!force) togkartPromise=promise;
   try { return await promise; }
   finally { if(togkartPromise===promise) togkartPromise=null; }
+}
+async function getArchivedTogkart(date) {
+  const cached=togkartArchiveCache.get(date);
+  if(cached) return cached;
+  const promise=(async()=>{
+    const response=await fetchJson(`/api/togkart-archive?date=${encodeURIComponent(date)}`);
+    const data=await parseTogkart(response);
+    return {...data,source_time:response.archived_at || data.source_time,archive_complete:Boolean(response.complete)};
+  })();
+  togkartArchiveCache.set(date,promise);
+  try { return await promise; }
+  catch(error) { togkartArchiveCache.delete(date); throw error; }
 }
 async function getLiveEt(force=false) {
   if(!force && liveEtCache && Date.now()-liveEtCache.ts<45000) return liveEtCache.data;
@@ -888,7 +906,13 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     return {items:applyGraphCancellations(mergeLiveItems(graphResult.items,liveItems),graphResult,date,locationCode).sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
       operational_notices:graphResult.operational_notices,source_time:et?.source_time || graphResult.source_time || null,mode:et?'live':'planned',location,location_code:locationCode,date};
   }
-  return {items:graphResult.items,operational_notices:graphResult.operational_notices,source_time:graphResult.source_time,mode:'planned',location,location_code:locationCode,date};
+  let archive=null;
+  try { archive=await getArchivedTogkart(date); } catch {}
+  const archivedItems=archive?queryDataset(archive,locationCode,date,fromTime,toTime,false,eventType):[];
+  return {items:mergeLiveItems(graphResult.items,[],archivedItems)
+      .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true})),
+    operational_notices:graphResult.operational_notices,source_time:archive?.source_time || graphResult.source_time,
+    archive_complete:archive?.archive_complete || false,mode:archive?'archived':'planned',location,location_code:locationCode,date};
 }
 export function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
