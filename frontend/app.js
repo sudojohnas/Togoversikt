@@ -304,7 +304,7 @@ async function loadRouteGraphs(requestId) {
   const locationName=$('location').value.trim() || locationCode;
   if(!locationCode) { $('route-graphs').hidden=true; return; }
   $('route-graphs').hidden=false;
-  $('route-graphs-title').textContent=`Rutegrafer fra Bane NOR for ${locationName}`;
+  $('route-graphs-title').textContent=`Rutegrafer for ${locationName}`;
   $('route-graphs-description').textContent='Henter aktuelle strekninger …';
   $('route-graph-links').innerHTML='';
   try {
@@ -314,6 +314,7 @@ async function loadRouteGraphs(requestId) {
       $('route-graphs-description').textContent='Fant ingen rutegraf koblet til dette stedet.';
       return;
     }
+    $('route-graphs-title').textContent=`${graphs.length===1?'Rutegraf':'Rutegrafer'} for ${locationName}`;
     $('route-graphs-description').textContent=graphs.length===1
       ? 'Åpnes hos Bane NOR i en ny fane.'
       : `${graphs.length} rutegrafer dekker valgt sted · åpnes hos Bane NOR i en ny fane.`;
