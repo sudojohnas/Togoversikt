@@ -52,7 +52,11 @@ test('supports both portrait and landscape A3 graph coordinates', () => {
   });
 });
 
-test('treats a yellow graph path as cancelled', () => {
+test('treats yellow and light-brown graph paths as cancelled', () => {
   assert.deepEqual(graphStrokeHints('#fed349','102'),{work_hint:false,cancelled_hint:true});
+  assert.equal(graphStrokeHints('#ffff00','102').cancelled_hint,true);
+  assert.equal(graphStrokeHints('#ffa54f','102').cancelled_hint,true);
+  assert.equal(graphStrokeHints('#ffaa00','102').cancelled_hint,true);
+  assert.equal(graphStrokeHints('#aa5500','102').cancelled_hint,false);
   assert.deepEqual(graphStrokeHints('#0000ff','54702'),{work_hint:true,cancelled_hint:false});
 });

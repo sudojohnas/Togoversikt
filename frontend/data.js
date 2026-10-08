@@ -592,15 +592,19 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   const response=await getDailyGraphs(date,locationCode,trains);
   if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time};
   const possibleWorkTrains=response.possible_work_trains || [];
+  const cancelledGraphNumbers=new Set(possibleWorkTrains.filter(train=>train.cancelled_hint).map(train=>String(train.train_no)));
+  const eligibleWorkTrains=possibleWorkTrains.filter(train=>!train.cancelled_hint);
   // SIRI PT is the primary plan. A daily graph may add pass-through trains,
   // but must never turn a departure-only SIRI call into a guessed arrival (or
   // vice versa) merely because the current board filters out the other event.
-  const confirmed=items;
+  // Yellow and light-brown graph paths mean cancelled and withdrawn trains;
+  // they must also override an otherwise present SIRI timetable entry.
+  const confirmed=items.filter(item=>!cancelledGraphNumbers.has(String(item.train_no)));
   const siriCallNumbers=new Set(plan.journeys.filter(journey=>{
     const call=selectedCall(journey,locationCode);
     return call && [call.aimed_arrival_iso,call.aimed_departure_iso,call.planned_iso].some(value=>isoDate(value)===date);
   }).map(journey=>String(journey.train_no)));
-  const missingNumbers=[...new Set(possibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!siriCallNumbers.has(number)))];
+  const missingNumbers=[...new Set(eligibleWorkTrains.map(train=>String(train.train_no)).filter(number=>!siriCallNumbers.has(number)))];
   let metadataPlan={journeys:[]};
   if(missingNumbers.length) {
     try { metadataPlan=await getPlan(date,locationCode,false,missingNumbers); } catch {}
@@ -610,7 +614,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
     try { cancelledNumbers=cancelledTrainNumbersForDate((await getLiveEt()).journeys,missingNumbers,date); } catch {}
   }
   const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
-  const graphOnly=possibleWorkTrains.filter(train=>!train.cancelled_hint && !siriCallNumbers.has(String(train.train_no)) &&
+  const graphOnly=eligibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no)) &&
     !cancelledNumbers.has(String(train.train_no))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];

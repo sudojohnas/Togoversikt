@@ -449,6 +449,28 @@ test('does not add graph trains marked yellow as cancelled', async () => {
   }
 });
 
+test('removes a planned SIRI train when the graph marks it cancelled', async () => {
+  const originalFetch=globalThis.fetch;
+  const pt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame><OperatorRef>VY</OperatorRef><LineRef>RE20</LineRef><DatedVehicleJourney><DatedVehicleJourneyCode>102:2099-01-05</DatedVehicleJourneyCode><ServiceFeatureRef>passengerTrain</ServiceFeatureRef><DatedCalls><DatedCall><StopPointRef>KAM</StopPointRef><StopPointName>Kambo</StopPointName><AimedDepartureTime>2099-01-05T05:13:00+01:00</AimedDepartureTime></DatedCall></DatedCalls></DatedVehicleJourney></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const graph={graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:light-brown',train_no:'102',line_number:24,origin_code:'HLD',destination_code:'OSL',cancelled_hint:true,
+    route:[{code:'KAM',time:'05:13',minute:313}],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path.startsWith('/api/pt')) return new Response(pt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'KAM',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(graph);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'KAM',location:'Kambo',date:'2099-01-05',today:'2099-01-01',fromTime:'00:00',toTime:'23:59'});
+    assert.deepEqual(result.items,[]);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
 test('recognizes a cancelled SIRI journey only on the matching date', () => {
   const journeys=[{journey_id:'102:2026-10-08',train_no:'102',cancelled:true,route:[]}];
   assert.deepEqual([...cancelledTrainNumbersForDate(journeys,['102'],'2026-10-08')],['102']);

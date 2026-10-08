@@ -2,6 +2,7 @@ import { extractTextItems, getDocumentProxy, getResolvedPDFJS } from 'unpdf';
 
 export const DAILY_GRAPH_COUNT = 25;
 export const DAILY_GRAPH_URL = 'https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/daglige-rutegrafer/';
+const CANCELLED_TRAIN_COLORS = new Set(['#fed349','#ffff00','#ffa54f','#ffaa00']);
 
 export function graphUrl(date, line) {
   const url=new URL(DAILY_GRAPH_URL);
@@ -123,7 +124,7 @@ export function graphStrokeHints(stroke, trainNo='') {
   const color=String(stroke || '').toLowerCase();
   return {
     work_hint:!['#000000','#010101'].includes(color) && String(trainNo).length>=4,
-    cancelled_hint:color==='#fed349',
+    cancelled_hint:CANCELLED_TRAIN_COLORS.has(color),
   };
 }
 
@@ -131,7 +132,7 @@ function pathCrossingOccurrences(segments, labels, stations, hours, page, line) 
   const minX=hours[0].x-3, maxX=hours.at(-1).x+3;
   const minY=Math.min(...stations.map(station=>station.y))-3;
   const maxY=Math.max(...stations.map(station=>station.y))+3;
-  const trainColors=new Set(['#000000','#010101','#0000ff','#fed349','#ff0000']);
+  const trainColors=new Set(['#000000','#010101','#0000ff','#fed349','#ffff00','#ffa54f','#ffaa00','#ff0000']);
   const candidates=segments.filter(segment=>{
     const dx=Math.abs(segment.b.x-segment.a.x), dy=Math.abs(segment.b.y-segment.a.y);
     return trainColors.has(segment.stroke) && segment.width>0 && segment.width<=2 && !segment.dash.length && dx>0.1 && dy>0.1 &&
