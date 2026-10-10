@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -330,6 +330,37 @@ test('keeps separate arrival and departure times in train details', () => {
   assert.equal(detail.route[0].planned_departure,'14:05');
   assert.equal(detail.route[0].expected_departure,'14:07');
   assert.equal(detail.route[0].actual_departure,'14:06');
+});
+
+test('marks every stop when the entire journey is cancelled', () => {
+  const route=[
+    {...baseCall,code:'AKE',name:'Åkersvika'},
+    {...baseCall,code:'OSL',name:'Oslo S'},
+    {...baseCall,code:'GRO',name:'Grorud'},
+  ];
+  const detail=detailFromJourney({journey_id:'5936',train_no:'5936',route,cancelled:true},'OSL',null);
+  assert.equal(detail.status,'Innstilt');
+  assert.deepEqual(detail.route.map(stop=>stop.status),['Innstilt','Innstilt','Innstilt']);
+});
+
+test('marks only affected stops when a journey is partially cancelled', () => {
+  const route=[
+    {...baseCall,code:'AKE',name:'Åkersvika'},
+    {...baseCall,code:'OSL',name:'Oslo S',status_raw:'cancelled'},
+    {...baseCall,code:'GRO',name:'Grorud'},
+  ];
+  const detail=detailFromJourney({journey_id:'5936',train_no:'5936',route,cancelled:false},'OSL',null);
+  assert.deepEqual(detail.route.map(stop=>stop.status),['Planlagt','Innstilt','Planlagt']);
+});
+
+test('applies a whole-path graph cancellation to every stop in the detail view', () => {
+  const detail=markGraphCancelledDetail({status:'Planlagt',route:[
+    {code:'AKE',status:'Planlagt'},
+    {code:'OSL',status:'Planlagt',selected:true},
+    {code:'GRO',status:'Planlagt'},
+  ]});
+  assert.equal(detail.status,'Innstilt ifølge rutegraf');
+  assert.deepEqual(detail.route.map(stop=>stop.status),['Innstilt','Innstilt','Innstilt']);
 });
 
 test('uses arrival time on the train card when arrival and departure both exist', () => {

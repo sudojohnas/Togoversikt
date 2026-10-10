@@ -1,4 +1,4 @@
-import { dailyGraphName, searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
+import { dailyGraphName, markGraphCancelledDetail, searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
 import { mergeOperationalNotices, operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -415,9 +415,7 @@ async function openDetail(itemKey, force=false) {
     });
     if (!x) throw new Error('Toget finnes ikke lenger i datasettet');
     if (item?.graph_cancelled) {
-      x.status = 'Innstilt ifølge rutegraf';
-      x.source_url = item.graph_url || x.source_url;
-      x.route = (x.route || []).map(stop => stop.selected ? {...stop,status:'Innstilt'} : stop);
+      Object.assign(x,markGraphCancelledDetail(x),{source_url:item.graph_url || x.source_url});
     }
     const route = (x.route || []).map(stop => {
       const cls = stop.state === 'current' ? 'current' : stop.state === 'recorded' ? 'passed' : 'upcoming';

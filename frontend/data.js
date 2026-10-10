@@ -207,6 +207,7 @@ function passedStatus(journey, call) {
   return isDestination && Boolean(call?.actual_arrival_iso || call?.actual_iso || callIsRecorded(call)) ? 'Ankommet' : 'Passert';
 }
 export function journeyCallStatus(journey, call, eventType='auto') {
+  if(journey?.cancelled) return 'Innstilt';
   const delayed=delayStatus(call,eventType);
   if(delayed==='Innstilt') return delayed;
   if(journeyHasPassedCall(journey,call)) return passedStatus(journey,call);
@@ -253,7 +254,8 @@ function parsePt(xml) {
       const route=arr(elem?.DatedCalls?.DatedCall).map(c=>parseCall(c,'planned')); if(!route.length) continue;
       journeys.push({journey_id:id,train_no:trainNo,line,operator_code:operator,operator:OPERATOR_NAMES[operator] || operator || '',
         category:category(feature,product,operator),origin:route[0].name,destination:route.at(-1).name,direction_ref:direction,
-        product,feature,route,source:'Bane NOR SIRI PT'});
+        product,feature,route,cancelled:String(elem?.Cancellation || '').toLowerCase()==='true' || route.every(call=>call.status_raw==='cancelled'),
+        source:'Bane NOR SIRI PT'});
     }
   }
   return {journeys,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
@@ -939,6 +941,12 @@ export function detailFromJourney(journey, locationCode, sourceTime) {
     origin:journey.origin,destination:journey.destination,status:selectedStatus,passing:Boolean(selected?.passing),selected_time:selected?isoClock(callIso(selected)):null,
     current_location:current?.name || 'Ikke registrert ennå',route,source:journey.source,source_time:sourceTime};
 }
+
+export function markGraphCancelledDetail(detail) {
+  if(!detail) return detail;
+  return {...detail,status:'Innstilt ifølge rutegraf',route:(detail.route || []).map(stop=>({...stop,status:'Innstilt'}))};
+}
+
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   if(item?.graph_only) {
     return {journey_id:item.journey_id,train_no:item.train_no,line:item.line,category:item.category || 'Ukjent',operator:item.operator || '',
