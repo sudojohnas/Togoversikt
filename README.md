@@ -49,7 +49,7 @@ Worker-hemmeligheten `NTFY_TOPIC_URL` inneholder hele publish-URL-en, for
 eksempel `https://ntfy.sh/en-lang-tilfeldig-topic`. `NTFY_TOKEN` er valgfri og
 brukes som Bearer-token hvis topicen ligger på en autentisert ntfy-server.
 
-Cron-feil og uventede API-feil sendes til ntfy. Like feil dempes i 15 minutter
+Cron-feil og uventede API-feil sendes til ntfy. Like feil dempes i 60 minutter
 med en kortlivet KV-nøkkel for å unngå varslingsstormer.
 
 ```sh

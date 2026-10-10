@@ -65,11 +65,11 @@ function errorMessage(error) {
 
 async function notifyNtfy(env, title, message, dedupeKey='generic') {
   if(!env?.NTFY_TOPIC_URL) return false;
-  const marker=`alert:v1:${dedupeKey}`;
+  const marker=`alert:v1:${String(dedupeKey).slice(0,300)}`;
   try {
     if(env.ROUTE_GRAPHS) {
       if(await env.ROUTE_GRAPHS.get(marker)) return false;
-      await env.ROUTE_GRAPHS.put(marker,'1',{expirationTtl:15*60});
+      await env.ROUTE_GRAPHS.put(marker,'1',{expirationTtl:60*60});
     }
     const headers={Title:title,Priority:'high',Tags:'warning,train'};
     if(env.NTFY_TOKEN) headers.Authorization=`Bearer ${env.NTFY_TOKEN}`;
