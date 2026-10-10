@@ -127,3 +127,7 @@
   .train-row.passed .route-cell,.train-row.passed .type-cell{color:#697581!important}
   .passing-badge{margin-left:5px;font-size:8px}
 }
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}

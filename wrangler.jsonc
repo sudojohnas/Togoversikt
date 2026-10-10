@@ -6,6 +6,21 @@
   "triggers": {
     "crons": ["*/15 * * * *"]
   },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1,
+    "issues": { "enabled": true }
+  },
+  "version_metadata": {
+    "binding": "CF_VERSION_METADATA"
+  },
+  "ratelimits": [
+    {
+      "name": "EXPENSIVE_RATE_LIMITER",
+      "namespace_id": "104729",
+      "simple": { "limit": 120, "period": 60 }
+    }
+  ],
   "kv_namespaces": [
     { "binding": "ROUTE_GRAPHS" }
   ],

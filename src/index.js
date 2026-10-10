@@ -15,6 +15,81 @@ const SECTION_STATION_CODES = LOCATIONS.filter(location=>location.kind==='Stasjo
 const SPLIT_GRAPH_LINES = new Set([7,23,24,25]);
 const TOGKART_ARCHIVE_VERSION = 'v1';
 const OSLO_DATE = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Oslo',year:'numeric',month:'2-digit',day:'2-digit'});
+const VALID_LOCATION_CODES = new Set(LOCATIONS.map(location=>location.code));
+const MAX_QUERY_DATE_DISTANCE_DAYS = 31;
+const COMMON_SECURITY_HEADERS = {
+  'Strict-Transport-Security':'max-age=31536000; includeSubDomains',
+  'X-Content-Type-Options':'nosniff',
+  'Referrer-Policy':'strict-origin-when-cross-origin',
+  'Permissions-Policy':'camera=(), microphone=(), payment=(), usb=()',
+};
+
+function validCalendarDate(value) {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return false;
+  const date=new Date(`${value}T12:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0,10)===value;
+}
+
+function dateWithinQueryWindow(value, now=new Date()) {
+  if(!validCalendarDate(value)) return false;
+  const today=OSLO_DATE.format(now);
+  const distance=Math.round((Date.parse(`${value}T12:00:00Z`)-Date.parse(`${today}T12:00:00Z`))/86400000);
+  return Math.abs(distance)<=MAX_QUERY_DATE_DISTANCE_DAYS;
+}
+
+function validLocationCode(value) {
+  return VALID_LOCATION_CODES.has(String(value || '').toUpperCase());
+}
+
+function secureResponse(response) {
+  const headers=new Headers(response.headers);
+  for(const [name,value] of Object.entries(COMMON_SECURITY_HEADERS)) headers.set(name,value);
+  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+
+function upstreamHeaders(response, cacheControl, source, fallbackType) {
+  const headers=new Headers();
+  headers.set('Content-Type',response.headers.get('Content-Type') || fallbackType);
+  headers.set('Cache-Control',response.ok?cacheControl:'no-store');
+  headers.set('X-Togoversikt-Upstream',source);
+  for(const name of ['ETag','Last-Modified']) {
+    const value=response.headers.get(name);
+    if(value) headers.set(name,value);
+  }
+  return headers;
+}
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function notifyNtfy(env, title, message, dedupeKey='generic') {
+  if(!env?.NTFY_TOPIC_URL) return false;
+  const marker=`alert:v1:${dedupeKey}`;
+  try {
+    if(env.ROUTE_GRAPHS) {
+      if(await env.ROUTE_GRAPHS.get(marker)) return false;
+      await env.ROUTE_GRAPHS.put(marker,'1',{expirationTtl:15*60});
+    }
+    const headers={Title:title,Priority:'high',Tags:'warning,train'};
+    if(env.NTFY_TOKEN) headers.Authorization=`Bearer ${env.NTFY_TOKEN}`;
+    const response=await fetch(env.NTFY_TOPIC_URL,{method:'POST',headers,body:String(message).slice(0,3500),signal:AbortSignal.timeout(5000)});
+    if(!response.ok) throw new Error(`ntfy svarte ${response.status}`);
+    return true;
+  } catch(error) {
+    console.error(JSON.stringify({event:'ntfy_error',error:errorMessage(error)}));
+    return false;
+  }
+}
+
+async function enforceRateLimit(request, env) {
+  if(!env?.EXPENSIVE_RATE_LIMITER) return null;
+  const url=new URL(request.url);
+  if(!['/api/daily-graphs','/api/pt'].includes(url.pathname)) return null;
+  const actor=request.headers.get('CF-Connecting-IP') || 'anonymous';
+  const {success}=await env.EXPENSIVE_RATE_LIMITER.limit({key:`${actor}:${url.pathname}`});
+  return success?null:Response.json({detail:'For mange forespørsler. Prøv igjen om litt.'},{status:429,headers:{'Retry-After':'60'}});
+}
 
 function graphParts(line) {
   return Number(line)===6?12:SPLIT_GRAPH_LINES.has(Number(line))?2:1;
@@ -35,7 +110,7 @@ function copyParams(source, target, allowed) {
 async function fetchUpstream(url, options) {
   let response;
   for (let attempt = 0; attempt < 2; attempt++) {
-    response = await fetch(url, options);
+    response = await fetch(url, {...options,signal:options?.signal || AbortSignal.timeout(15000)});
     if (!TRANSIENT_UPSTREAM_STATUSES.has(response.status) || attempt === 1) return response;
     await response.body?.cancel();
   }
@@ -50,16 +125,40 @@ async function proxyXml(request, upstreamBase, allowed, ttl) {
     cf: { cacheEverything: true, cacheTtlByStatus: { '200-299': ttl, '300-599': 0 } },
     headers: { 'User-Agent': 'Togoversikt.no/1.0' },
   });
-  const headers = new Headers(response.headers);
-  headers.set('Cache-Control', `public, max-age=${ttl}`);
-  headers.set('X-Togoversikt-Upstream', 'Bane NOR SIRI');
+  const headers=upstreamHeaders(response,`public, max-age=${ttl}`,'Bane NOR SIRI','application/xml; charset=utf-8');
   return new Response(response.body, { status: response.status, headers });
+}
+
+function validateStopMonitoring(request) {
+  const params=new URL(request.url).searchParams;
+  const locationCode=String(params.get('MonitoringRef') || '').toUpperCase();
+  if(!validLocationCode(locationCode)) return 'Ugyldig MonitoringRef';
+  const maximum=Number(params.get('MaximumStopVisits') || 2000);
+  if(!Number.isInteger(maximum) || maximum<1 || maximum>2000) return 'Ugyldig MaximumStopVisits';
+  const preview=params.get('PreviewInterval') || '';
+  const match=preview.match(/^PT(\d{1,4})M$/);
+  if(!match || Number(match[1])<1 || Number(match[1])>2880) return 'Ugyldig PreviewInterval';
+  const start=params.get('StartTime');
+  if(start && (!Number.isFinite(Date.parse(start)) || !dateWithinQueryWindow(start.slice(0,10)))) return 'Ugyldig StartTime';
+  for(const key of ['OperatorRef','DestinationRef']) {
+    const value=params.get(key);
+    if(value && !/^[A-ZÆØÅ0-9:_-]{1,40}$/u.test(value)) return `Ugyldig ${key}`;
+  }
+  return null;
 }
 
 async function proxyProductionTimetable(request, ctx) {
   const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
   const fullJourney=incoming.searchParams.get('IncludeFullJourney')==='true';
-  if(!/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
+  if(!validLocationCode(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
+  const start=incoming.searchParams.get('ValidityPeriod.StartTime'), end=incoming.searchParams.get('ValidityPeriod.EndTime');
+  const startMs=Date.parse(start || ''), endMs=Date.parse(end || '');
+  if(!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs<=startMs || endMs-startMs>72*60*60*1000) {
+    return Response.json({detail:'Ugyldig eller for lang gyldighetsperiode'},{status:400});
+  }
+  if(!dateWithinQueryWindow(String(start).slice(0,10)) || !dateWithinQueryWindow(String(end).slice(0,10))) {
+    return Response.json({detail:'Gyldighetsperioden er utenfor tillatt datointervall'},{status:400});
+  }
   const rawTrainNumbers=(incoming.searchParams.get('TrainNumbers') || '').split(',').map(value=>value.trim()).filter(Boolean);
   if(rawTrainNumbers.length>500 || rawTrainNumbers.some(value=>!/^\d{1,6}$/.test(value))) {
     return Response.json({detail:'Ugyldige tognumre'},{status:400});
@@ -70,12 +169,12 @@ async function proxyProductionTimetable(request, ctx) {
   if(cached) return cached;
   const upstream=new URL(`${SIRI}/pt/production-timetable.xml`);
   copyParams(incoming.searchParams,upstream.searchParams,['ValidityPeriod.StartTime','ValidityPeriod.EndTime']);
-  const response=await fetch(upstream.toString(),{
+  const response=await fetchUpstream(upstream.toString(),{
     cf:{cacheEverything:true,cacheTtl:600},headers:{'User-Agent':'Togoversikt.no/1.0'}
   });
   const xml=await response.text();
   const result=new Response(response.ok?filterProductionTimetableXml(xml,locationCode,trainNumbers,!fullJourney):xml,{
-    status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=600','X-Togoversikt-Upstream':'Bane NOR SIRI PT'}
+    status:response.status,headers:upstreamHeaders(response,'public, max-age=600','Bane NOR SIRI PT','application/xml; charset=utf-8')
   });
   if(cache && response.ok) {
     const stored=cache.put(request,result.clone());
@@ -86,7 +185,7 @@ async function proxyProductionTimetable(request, ctx) {
 
 async function proxyEstimatedTimetable(request, ctx) {
   const incoming=new URL(request.url), locationCode=String(incoming.searchParams.get('StopPointRef') || '').toUpperCase();
-  if(locationCode && !/^[A-ZÆØÅ0-9]{1,8}$/u.test(locationCode)) return Response.json({detail:'Ugyldig stedskode'},{status:400});
+  if(locationCode && !validLocationCode(locationCode)) return Response.json({detail:'Ugyldig stedskode'},{status:400});
   const cache=typeof caches!=='undefined' ? caches.default : null;
   const cached=cache ? await cache.match(request) : null;
   if(cached) return cached;
@@ -100,7 +199,7 @@ async function proxyEstimatedTimetable(request, ctx) {
   });
   const xml=await response.text();
   const result=new Response(response.ok && locationCode?filterEstimatedTimetableXml(xml,locationCode):xml,{
-    status:response.status,headers:{'Content-Type':'application/xml; charset=utf-8','Cache-Control':'public, max-age=30','X-Togoversikt-Upstream':'Bane NOR SIRI ET'}
+    status:response.status,headers:upstreamHeaders(response,'public, max-age=30','Bane NOR SIRI ET','application/xml; charset=utf-8')
   });
   if(cache && response.ok) {
     const stored=cache.put(request,result.clone());
@@ -110,22 +209,66 @@ async function proxyEstimatedTimetable(request, ctx) {
 }
 
 
-async function proxyTogkart() {
+async function proxyTogkart(request) {
+  const incoming=new URL(request.url);
+  const locationCode=String(incoming.searchParams.get('location') || '').toUpperCase();
+  if(!validLocationCode(locationCode)) return Response.json({detail:'Mangler gyldig stedskode'},{status:400});
   const upstream = new URL(TOGKART);
   const bucket = Math.floor(Date.now() / 30000) * 30 + 60;
   upstream.searchParams.set('timestamp', String(bucket));
-  const response = await fetch(upstream.toString(), {
+  const response = await fetchUpstream(upstream.toString(), {
     cf: { cacheEverything: true, cacheTtl: 20 },
     headers: { 'User-Agent': 'Togoversikt.no/1.0' },
   });
-  const headers = new Headers(response.headers);
-  headers.set('Cache-Control', 'public, max-age=20');
-  headers.set('X-Togoversikt-Upstream', 'Bane NOR Togkart');
-  return new Response(response.body, { status: response.status, headers });
+  if(!response.ok) {
+    return new Response(response.body,{status:response.status,headers:upstreamHeaders(response,'public, max-age=20','Bane NOR Togkart','application/json; charset=utf-8')});
+  }
+  const payload=await response.json();
+  payload.Fares=(payload?.Fares || []).filter(fare=>fare?.origin===locationCode || fare?.destination===locationCode ||
+    (fare?.stops || []).some(stop=>stop?.city===locationCode));
+  return Response.json(payload,{headers:{'Cache-Control':'public, max-age=20','X-Togoversikt-Upstream':'Bane NOR Togkart'}});
 }
 
 function archiveKey(date) {
   return `togkart-archive:${TOGKART_ARCHIVE_VERSION}:${date}`;
+}
+
+function retentionExpiration(date) {
+  return Math.floor((Date.parse(`${date}T00:00:00Z`)+(31*24*60*60*1000))/1000);
+}
+
+function storedDateFromKey(name) {
+  const match=String(name).match(/(\d{4}-\d{2}-\d{2})/);
+  return match?.[1] && validCalendarDate(match[1])?match[1]:null;
+}
+
+export async function maintainKvRetention(store, now=new Date()) {
+  if(!store || typeof store.list!=='function') return {scanned:0,deleted:0,migrated:0};
+  let scanned=0, deleted=0, migrated=0;
+  for(const prefix of ['daily-graph:','togkart-archive:']) {
+    let cursor;
+    do {
+      const page=await store.list({prefix,cursor,limit:1000});
+      for(const item of page.keys || []) {
+        scanned++;
+        const date=storedDateFromKey(item.name);
+        const obsoleteParser=prefix==='daily-graph:' && !item.name.startsWith(`daily-graph:${GRAPH_PARSER_VERSION}:`);
+        const expiration=date?retentionExpiration(date):0;
+        if(obsoleteParser || !date || expiration*1000<=now.getTime()) {
+          await store.delete(item.name);
+          deleted++;
+        } else if(!item.expiration) {
+          const value=await store.get(item.name);
+          if(value!=null) {
+            await store.put(item.name,value,{expiration});
+            migrated++;
+          }
+        }
+      }
+      cursor=page.list_complete?undefined:page.cursor;
+    } while(cursor);
+  }
+  return {scanned,deleted,migrated};
 }
 
 function osloDateFromEpoch(value) {
@@ -173,7 +316,7 @@ export async function archiveTogkart(scheduledAt, store) {
     }
     const merged=[...fares.values()], complete=date<today && merged.length>0 && merged.every(fareResolved);
     const archive={date,Fares:merged,archived_at:scheduledAt.toISOString(),complete};
-    await store.put(key,JSON.stringify(archive));
+    await store.put(key,JSON.stringify(archive),{expiration:retentionExpiration(date)});
     results.push({date,complete,fares:merged.length});
   }
   return {dates:results,fares:incoming.length};
@@ -181,7 +324,7 @@ export async function archiveTogkart(scheduledAt, store) {
 
 async function togkartArchive(request, store) {
   const date=new URL(request.url).searchParams.get('date') || '';
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
+  if(!validCalendarDate(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
   const archive=store ? await store.get(archiveKey(date),'json') : null;
   if(!archive) return Response.json({detail:'Ingen arkiverte sanntidsdata for datoen'},{status:404});
   return Response.json(archive,{headers:{'Cache-Control':archive.complete?'public, max-age=86400':'public, max-age=60'}});
@@ -198,7 +341,7 @@ async function storeGraphResult(cache, cacheKey, store, storeKey, data, ctx, per
     const pending=cache.put(cacheKey,response);
     if(ctx?.waitUntil) ctx.waitUntil(pending); else await pending;
   }
-  if(persist && store) await store.put(storeKey,JSON.stringify(data));
+  if(persist && store) await store.put(storeKey,JSON.stringify(data),{expiration:retentionExpiration(data.date)});
 }
 
 async function dailyGraphLine(date, line, ctx, store, part=1, parts=1, forceCheck=false) {
@@ -292,26 +435,29 @@ async function warmDailyGraphCache(date, ctx, store) {
     return Array.from({length:parts},(_,index)=>({line,part:index+1,parts}));
   });
   let cursor=0, completed=0;
+  const errors=[];
   const workers=Array.from({length:2},async()=>{
     while(cursor<tasks.length) {
       const task=tasks[cursor++];
       try {
         await dailyGraphLine(date,task.line,ctx,store,task.part,task.parts,true);
         completed++;
-      } catch {
+      } catch(error) {
         // Én utilgjengelig graf skal ikke stoppe oppvarmingen av de andre.
+        errors.push({line:task.line,part:task.part,error:errorMessage(error)});
       }
     }
   });
   await Promise.all(workers);
-  return {attempted:tasks.length,completed};
+  return {attempted:tasks.length,completed,errors};
 }
 
 async function dailyGraphMatches(request, ctx, store) {
   const url=new URL(request.url), date=url.searchParams.get('date') || '';
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)) return Response.json({detail:'Ugyldig dato'},{status:400});
+  if(!dateWithinQueryWindow(date)) return Response.json({detail:'Datoen må være gyldig og innenfor 31 dager'},{status:400});
   const candidates=(url.searchParams.get('trains') || '').split(',').map(x=>x.trim()).filter(x=>/^\d{1,6}$/.test(x)).slice(0,500);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
+  if(!validLocationCode(locationCode)) return Response.json({detail:'Ugyldig stedskode'},{status:400});
   const rawLine=url.searchParams.get('line');
   const requestedLine=rawLine==null ? null : Number(rawLine);
   if(rawLine!=null && (!Number.isInteger(requestedLine) || requestedLine<1 || requestedLine>DAILY_GRAPH_COUNT || !graphLinesForLocation(locationCode).includes(requestedLine))) {
@@ -343,6 +489,7 @@ async function dailyGraphMatches(request, ctx, store) {
 function dailyGraphLines(request) {
   const url=new URL(request.url);
   const locationCode=String(url.searchParams.get('location') || '').toUpperCase();
+  if(!validLocationCode(locationCode)) return Response.json({detail:'Ugyldig stedskode'},{status:400});
   const lines=STATION_GRAPH_LINES[locationCode] || [];
   const routeCodes=[...new Set((url.searchParams.get('route') || '').split(',').map(code=>code.trim().toUpperCase())
     .filter(code=>/^[A-ZÆØÅ0-9]{1,8}$/u.test(code)).slice(0,150))];
@@ -360,62 +507,97 @@ function dailyGraphLines(request) {
 async function proxyNearest(request) {
   const incoming = new URL(request.url);
   const upstream = new URL(ENTUR);
-  for (const key of ['lat', 'lon']) {
-    const value = incoming.searchParams.get(key);
-    if (value == null) return Response.json({ detail: 'Mangler posisjon' }, { status: 400 });
+  const rawLat=incoming.searchParams.get('lat'), rawLon=incoming.searchParams.get('lon');
+  const lat=Number(rawLat), lon=Number(rawLon);
+  if(rawLat==null || rawLat.trim()==='' || rawLon==null || rawLon.trim()==='' ||
+    !Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lon) || lon < -180 || lon > 180) {
+    return Response.json({detail:'Ugyldig posisjon'},{status:400});
   }
-  upstream.searchParams.set('point.lat', incoming.searchParams.get('lat'));
-  upstream.searchParams.set('point.lon', incoming.searchParams.get('lon'));
+  upstream.searchParams.set('point.lat', String(lat));
+  upstream.searchParams.set('point.lon', String(lon));
   upstream.searchParams.set('size', '100');
   upstream.searchParams.set('lang', 'no');
   upstream.searchParams.set('layers', 'venue');
   upstream.searchParams.set('categories', 'railStation');
   upstream.searchParams.set('boundary.country', 'NOR');
   upstream.searchParams.set('boundary.circle.radius', '20000');
-  const response = await fetch(upstream.toString(), {
+  const response = await fetchUpstream(upstream.toString(), {
     headers: { 'ET-Client-Name': 'johnas-togoversikt' },
     cf: { cacheTtl: 60 },
   });
-  const headers = new Headers(response.headers);
-  headers.set('Cache-Control', 'private, max-age=60');
+  const headers=upstreamHeaders(response,'private, max-age=60','Entur Geocoder','application/json; charset=utf-8');
   return new Response(response.body, { status: response.status, headers });
 }
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    if (request.method !== 'GET' && url.pathname.startsWith('/api/')) {
-      return new Response('Method Not Allowed', { status: 405 });
+    try {
+      if(request.url.length>4096) return secureResponse(Response.json({detail:'For lang forespørsel'},{status:414}));
+      if (!['GET','HEAD'].includes(request.method) && url.pathname.startsWith('/api/')) {
+        return secureResponse(new Response('Method Not Allowed',{status:405,headers:{Allow:'GET, HEAD'}}));
+      }
+      const limited=await enforceRateLimit(request,env);
+      if(limited) return secureResponse(limited);
+      let response;
+      if (url.pathname === '/api/sm') {
+        const validationError=validateStopMonitoring(request);
+        response=validationError?Response.json({detail:validationError},{status:400}):
+          await proxyXml(request, `${SIRI}/sm/stop-monitoring.xml`, [
+            'MonitoringRef', 'StartTime', 'PreviewInterval', 'MaximumStopVisits',
+            'OperatorRef', 'DestinationRef',
+          ], 30);
+      } else if (url.pathname === '/api/et') response=await proxyEstimatedTimetable(request,ctx);
+      else if (url.pathname === '/api/pt') response=await proxyProductionTimetable(request,ctx);
+      else if (url.pathname === '/api/togkart') response=await proxyTogkart(request);
+      else if (url.pathname === '/api/togkart-archive') response=await togkartArchive(request,env.ROUTE_GRAPHS);
+      else if (url.pathname === '/api/daily-graphs') response=await dailyGraphMatches(request,ctx,env.ROUTE_GRAPHS);
+      else if (url.pathname === '/api/daily-graph-lines') response=dailyGraphLines(request);
+      else if (url.pathname === '/api/nearest') response=await proxyNearest(request);
+      else if (url.pathname === '/health') {
+        response=Response.json({status:'ok',mode:'Cloudflare Worker proxy',time:new Date().toISOString(),
+          version:env.CF_VERSION_METADATA?.id || null,notifications:Boolean(env.NTFY_TOPIC_URL)},
+          {headers:{'Cache-Control':'no-store'}});
+      } else return env.ASSETS.fetch(request);
+      return secureResponse(response);
+    } catch(error) {
+      const message=errorMessage(error);
+      console.error(JSON.stringify({event:'request_error',path:url.pathname,error:message}));
+      ctx?.waitUntil?.(notifyNtfy(env,'Togoversikt: API-feil',`${url.pathname}: ${message}`,`request:${url.pathname}:${message}`));
+      return secureResponse(Response.json({detail:'Tjenesten kunne ikke hente togdata akkurat nå.'},{status:502,headers:{'Cache-Control':'no-store'}}));
     }
-    if (url.pathname === '/api/sm') {
-      return proxyXml(request, `${SIRI}/sm/stop-monitoring.xml`, [
-        'MonitoringRef', 'StartTime', 'PreviewInterval', 'MaximumStopVisits',
-        'OperatorRef', 'DestinationRef',
-      ], 30);
-    }
-    if (url.pathname === '/api/et') {
-      return proxyEstimatedTimetable(request,ctx);
-    }
-    if (url.pathname === '/api/pt') {
-      return proxyProductionTimetable(request,ctx);
-    }
-    if (url.pathname === '/api/togkart') return proxyTogkart();
-    if (url.pathname === '/api/togkart-archive') return togkartArchive(request,env.ROUTE_GRAPHS);
-    if (url.pathname === '/api/daily-graphs') return dailyGraphMatches(request,ctx,env.ROUTE_GRAPHS);
-    if (url.pathname === '/api/daily-graph-lines') return dailyGraphLines(request);
-    if (url.pathname === '/api/nearest') return proxyNearest(request);
-    if (url.pathname === '/health') {
-      return Response.json({ status: 'ok', mode: 'Cloudflare Worker proxy', time: new Date().toISOString() });
-    }
-    return env.ASSETS.fetch(request);
   },
   async scheduled(controller, env, ctx) {
     const scheduledAt=Number.isFinite(controller?.scheduledTime)?new Date(controller.scheduledTime):new Date();
     const date=OSLO_DATE.format(scheduledAt);
-    const tasks=[warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS),archiveTogkart(scheduledAt,env.ROUTE_GRAPHS).catch(()=>null)];
-    // Neste dags grafer kontrolleres hver hele time, slik at innstillinger er
-    // klare før noen åpner oversikten. Dagens grafer kontrolleres hvert kvarter.
-    if(scheduledAt.getUTCMinutes()===0) tasks.push(warmDailyGraphCache(addDateDays(date,1),ctx,env.ROUTE_GRAPHS));
-    ctx.waitUntil(Promise.all(tasks));
+    ctx.waitUntil((async()=>{
+      const graphResults=[await warmDailyGraphCache(date,ctx,env.ROUTE_GRAPHS)];
+      // Neste dags grafer kontrolleres hver hele time, slik at innstillinger er
+      // klare før noen åpner oversikten. Dagens grafer kontrolleres hvert kvarter.
+      if(scheduledAt.getUTCMinutes()===0) graphResults.push(await warmDailyGraphCache(addDateDays(date,1),ctx,env.ROUTE_GRAPHS));
+      let archiveError=null;
+      try { await archiveTogkart(scheduledAt,env.ROUTE_GRAPHS); }
+      catch(error) { archiveError=errorMessage(error); }
+      let retentionError=null, retention=null;
+      if(scheduledAt.getUTCMinutes()===0) {
+        try { retention=await maintainKvRetention(env.ROUTE_GRAPHS,scheduledAt); }
+        catch(error) { retentionError=errorMessage(error); }
+      }
+      const graphErrors=graphResults.flatMap(result=>result.errors || []);
+      console.log(JSON.stringify({event:'scheduled_complete',date,
+        graphs_attempted:graphResults.reduce((sum,result)=>sum+result.attempted,0),
+        graphs_completed:graphResults.reduce((sum,result)=>sum+result.completed,0),
+        graph_errors:graphErrors.length,archive_error:archiveError,retention,retention_error:retentionError}));
+      if(graphErrors.length || archiveError || retentionError) {
+        const details=[graphErrors.length?`${graphErrors.length} rutegrafer feilet`:null,
+          archiveError?`Togkart-arkiv: ${archiveError}`:null,
+          retentionError?`KV-retention: ${retentionError}`:null].filter(Boolean).join('\n');
+        await notifyNtfy(env,'Togoversikt: cron-feil',details,`cron:${date}:${graphErrors.length}:${archiveError || 'ok'}`);
+      }
+    })().catch(async error=>{
+      const message=errorMessage(error);
+      console.error(JSON.stringify({event:'scheduled_error',date,error:message}));
+      await notifyNtfy(env,'Togoversikt: alvorlig cron-feil',message,`cron-fatal:${date}:${message}`);
+    }));
   },
 };

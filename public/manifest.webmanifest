@@ -1,0 +1,12 @@
+{
+  "name": "Togoversikt",
+  "short_name": "Togoversikt",
+  "description": "Tog og togtider fra Bane NOR",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f8",
+  "theme_color": "#f4f6f8",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

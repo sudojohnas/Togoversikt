@@ -27,9 +27,9 @@ export const DAILY_GRAPH_NAMES = {
 };
 let locationsPromise = null;
 let liveEtCache = null;
-let togkartCache = null;
+const togkartCache = new Map();
 let liveEtPromise = null;
-let togkartPromise = null;
+const togkartPromises = new Map();
 const planCache = new Map();
 const filteredEtCache = new Map();
 const locationEtCache = new Map();
@@ -467,18 +467,25 @@ function offsetFor(date,time='12:00') {
 function zonedIso(date,time) { return `${date}T${time}:00${offsetFor(date,time)}`; }
 function addDays(date,days) { const d=new Date(`${date}T12:00:00Z`); d.setUTCDate(d.getUTCDate()+days); return d.toISOString().slice(0,10); }
 function minutes(hhmm) { const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
-async function fetchText(url) { const r=await fetch(url); const text=await r.text(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return text; }
-async function fetchJson(url) { const r=await fetch(url); const data=await r.json(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return data; }
-async function getTogkart(force=false) {
-  if(!force && togkartCache && Date.now()-togkartCache.ts<20000) return togkartCache.data;
-  if(!force && togkartPromise) return togkartPromise;
+function fetchWithTimeout(url, options={}) {
+  const signal=options.signal || (typeof AbortSignal?.timeout==='function'?AbortSignal.timeout(15000):undefined);
+  return fetch(url,{...options,signal});
+}
+async function fetchText(url) { const r=await fetchWithTimeout(url); const text=await r.text(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return text; }
+async function fetchJson(url) { const r=await fetchWithTimeout(url); const data=await r.json(); if(!r.ok) throw new Error(`Datakilden svarte ${r.status}`); return data; }
+async function getTogkart(locationCode='',force=false) {
+  const key=String(locationCode || '').toUpperCase();
+  const cached=togkartCache.get(key);
+  if(!force && cached && Date.now()-cached.ts<20000) return cached.data;
+  if(!force && togkartPromises.has(key)) return togkartPromises.get(key);
   const promise=(async()=>{
-    const data=await parseTogkart(await fetchJson('/api/togkart'));
-    togkartCache={ts:Date.now(),data}; return data;
+    const query=key?`?location=${encodeURIComponent(key)}`:'';
+    const data=await parseTogkart(await fetchJson(`/api/togkart${query}`));
+    togkartCache.set(key,{ts:Date.now(),data}); return data;
   })();
-  if(!force) togkartPromise=promise;
+  if(!force) togkartPromises.set(key,promise);
   try { return await promise; }
-  finally { if(togkartPromise===promise) togkartPromise=null; }
+  finally { if(togkartPromises.get(key)===promise) togkartPromises.delete(key); }
 }
 async function getArchivedTogkart(date) {
   const cached=togkartArchiveCache.get(date);
@@ -859,7 +866,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         (async()=>{ try { return await getLiveEt(); } catch { return null; } })(),
         getGraphItems(locationCode,date,fromTime,toTime,eventType,today),
         (async()=>{ try {
-          const live=await getTogkart();
+          const live=await getTogkart(locationCode);
           return {live,items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,fromTime,toTime,false,eventType),locationCode)};
         } catch { return null; } })(),
       ]);
@@ -882,7 +889,7 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
         return sm.unsupported ? {items:[],time:null} : {items:await enrichSmItems(sm.items,locationCode,eventType),time:sm.source_time};
       } catch { return {items:[],time:null}; } })(),
       (async()=>{ try {
-        const live=await getTogkart();
+        const live=await getTogkart(locationCode);
         // Keep today's completed calls until after merging so their actual times can
         // replace stale Stop Monitoring entries before the final time filter.
         return {items:await enrichTogkartMetadata(queryDataset(live,locationCode,date,strictStart?fromTime:'00:00',toTime,!strictStart,eventType),locationCode),time:live.source_time};
@@ -940,7 +947,7 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
   let dataset;
   if(date===today) {
     try {
-      dataset=await getTogkart(force);
+      dataset=await getTogkart(locationCode,force);
       let j=dataset.journeys.find(x=>x.journey_id===journeyId);
       if(j) {
         if(item) {

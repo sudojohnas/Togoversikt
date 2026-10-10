@@ -4,6 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f6f8">
+  <meta name="description" content="Se avganger, ankomster, passeringer og trafikkstatus for norske jernbanestasjoner.">
+  <meta property="og:title" content="Togoversikt">
+  <meta property="og:description" content="Tog og togtider fra Bane NOR SIRI og daglige rutegrafer.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://togoversikt.no/">
+  <link rel="canonical" href="https://togoversikt.no/">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="sitemap" type="application/xml" href="/sitemap.xml">
   <title>Togoversikt</title>
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -55,10 +64,10 @@
       <div class="field location-field">
         <label for="location">Stasjon / blokkpost</label>
         <div class="location-input-row">
-          <input id="location" value="" placeholder="Søk etter sted …" autocomplete="off" spellcheck="false" aria-autocomplete="list">
+          <input id="location" value="" placeholder="Søk etter sted …" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-controls="suggestions" aria-expanded="false">
           <button id="locate" type="button" class="secondary locate-inline">Min posisjon</button>
         </div>
-        <div id="suggestions" class="suggestions" hidden></div>
+        <div id="suggestions" class="suggestions" role="listbox" hidden></div>
       </div>
       <div class="time-filter-row custom-filter-row">
         <div class="compact-picker-field"><label>Dato</label><button id="date-display" class="picker-trigger" type="button"></button><input id="date" type="hidden" value=""></div>

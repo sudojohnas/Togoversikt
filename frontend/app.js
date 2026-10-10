@@ -106,6 +106,8 @@ async function fetchLocations(q) { return searchLocationData(q); }
 
 function hideSuggestions() {
   $('suggestions').hidden = true;
+  $('location').setAttribute('aria-expanded','false');
+  $('location').removeAttribute('aria-activedescendant');
   activeSuggestion = -1;
 }
 
@@ -113,14 +115,18 @@ function drawSuggestions() {
   if (!suggestions.length) {
     $('suggestions').innerHTML = '<div class="suggestion-empty">Ingen treff</div>';
     $('suggestions').hidden = false;
+    $('location').setAttribute('aria-expanded','true');
     return;
   }
   $('suggestions').innerHTML = suggestions.map((x, i) => `
-    <button class="suggestion ${i === activeSuggestion ? 'active' : ''}" type="button" data-index="${i}">
+    <button id="suggestion-${i}" class="suggestion ${i === activeSuggestion ? 'active' : ''}" type="button" role="option" aria-selected="${i === activeSuggestion}" data-index="${i}">
       <span><strong>${esc(x.name)}</strong><small>${esc(x.kind)}</small></span>
       <b>${esc(x.code)}</b>
     </button>`).join('');
   $('suggestions').hidden = false;
+  $('location').setAttribute('aria-expanded','true');
+  if(activeSuggestion>=0) $('location').setAttribute('aria-activedescendant',`suggestion-${activeSuggestion}`);
+  else $('location').removeAttribute('aria-activedescendant');
   $('suggestions').querySelectorAll('.suggestion').forEach(btn => {
     btn.addEventListener('mousedown', e => {
       e.preventDefault();
@@ -626,6 +632,16 @@ $('close-train-map').addEventListener('click', hideTrainMap);
 trainMapFrame.addEventListener('load', () => $('train-map-loading').classList.add('loaded'));
 siteMenuPanel.addEventListener('click', e => {
   if (e.target.closest('a')) setMenuOpen(false);
+});
+siteMenuPanel.addEventListener('keydown',e=>{
+  if(!['ArrowDown','ArrowUp','Home','End'].includes(e.key)) return;
+  const items=[...siteMenuPanel.querySelectorAll('[role="menuitem"]')];
+  if(!items.length) return;
+  e.preventDefault();
+  const current=Math.max(0,items.indexOf(document.activeElement));
+  const next=e.key==='Home'?0:e.key==='End'?items.length-1:
+    e.key==='ArrowDown'?(current+1)%items.length:(current-1+items.length)%items.length;
+  items[next].focus();
 });
 document.addEventListener('click', e => {
   if (!e.target.closest('.site-menu')) setMenuOpen(false);
