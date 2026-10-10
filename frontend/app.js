@@ -1,4 +1,4 @@
-import { searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
+import { dailyGraphName, searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
 import { mergeOperationalNotices, operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -434,7 +434,7 @@ async function openDetail(itemKey, force=false) {
     if(sourceUrl) {
       const sourceLine=Number(new URL(sourceUrl).searchParams.get('selectLine'));
       const known=graphLinks.find(link=>link.line===sourceLine);
-      graphLinks=[{line:sourceLine,name:known?.name || `Rutegraf ${sourceLine}`,url:sourceUrl},...graphLinks.filter(link=>link.url!==sourceUrl)];
+      graphLinks=[{line:sourceLine,name:known?.name || dailyGraphName(sourceLine),url:sourceUrl},...graphLinks.filter(link=>link.url!==sourceUrl)];
     }
     const sourceLinks=graphLinks.length ? `<div class="detail-source-links"><span>Rutegraf hos Bane NOR</span>${graphLinks.map(link=>
       `<a class="detail-source-link" href="${esc(link.url)}" target="_blank" rel="noopener noreferrer">${esc(link.name)} <span aria-hidden="true">↗</span></a>`

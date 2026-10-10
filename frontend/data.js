@@ -25,6 +25,10 @@ export const DAILY_GRAPH_NAMES = {
   21:'Gardermobanen', 22:'Kongsberg skifteområde IV og Hønefoss skifteområde VII', 23:'Oslo S–Sarpsborg',
   24:'Skøyen–Oslo S–Kornsjø (V.L)', 25:'Vestby–Oslo S–Høvik',
 };
+
+export function dailyGraphName(line) {
+  return DAILY_GRAPH_NAMES[Number(line)] || `Rutegraf ${line}`;
+}
 let locationsPromise = null;
 let liveEtCache = null;
 const togkartCache = new Map();
@@ -46,7 +50,7 @@ export function dailyGraphUrl(date,line) {
 export async function routeGraphsForLocation(locationCode,date) {
   const p=new URLSearchParams({location:String(locationCode || '').toUpperCase()});
   const response=await fetchJson(`/api/daily-graph-lines?${p}`);
-  return (response.lines || []).map(line=>({line:Number(line),name:DAILY_GRAPH_NAMES[Number(line)] || `Rutegraf ${line}`,url:dailyGraphUrl(date,line)}));
+  return (response.lines || []).map(line=>({line:Number(line),name:dailyGraphName(line),url:dailyGraphUrl(date,line)}));
 }
 
 export async function trainGraphsForJourney(locationCode,date,route=[]) {
@@ -56,7 +60,7 @@ export async function trainGraphsForJourney(locationCode,date,route=[]) {
   const response=await fetchJson(`/api/daily-graph-lines?${p}`);
   const matched=response.matched_lines?.length?response.matched_lines:response.lines || [];
   return [...new Set(matched.map(Number).filter(Number.isFinite))].map(line=>({
-    line,name:DAILY_GRAPH_NAMES[line] || `Rutegraf ${line}`,url:dailyGraphUrl(date,line),
+    line,name:dailyGraphName(line),url:dailyGraphUrl(date,line),
   }));
 }
 

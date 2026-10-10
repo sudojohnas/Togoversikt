@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -692,6 +692,13 @@ test('builds a date-specific Bane NOR graph link for the selected route', () => 
   const url=new URL(dailyGraphUrl('2026-10-06',24));
   assert.equal(url.searchParams.get('dateInput'),'2026-10-06');
   assert.equal(url.searchParams.get('selectLine'),'24');
+});
+
+test('has an official name for every daily route graph', () => {
+  for(let line=1;line<=25;line++) {
+    assert.notEqual(dailyGraphName(line),`Rutegraf ${line}`);
+  }
+  assert.equal(dailyGraphName(25),'Vestby–Oslo S–Høvik');
 });
 
 test('adds the official route name to station graph links', async () => {
