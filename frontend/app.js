@@ -564,38 +564,28 @@ async function useMyLocation() {
 $('locate').addEventListener('click', useMyLocation);
 
 
-const SHARE_URL = 'https://togoversikt.no';
+const THEME_STORAGE_KEY = 'togoversikt-theme';
+const themeToggle = $('theme-toggle');
 
-async function shareSite() {
-  const btn = $('share');
-  const payload = {
-    title: 'Togoversikt',
-    text: 'Se tog, passeringer og trafikkstatus på Togoversikt',
-    url: SHARE_URL,
-  };
-  try {
-    if (navigator.share) {
-      await navigator.share(payload);
-      return;
-    }
-    await navigator.clipboard.writeText(SHARE_URL);
-    const old = btn.innerHTML;
-    btn.textContent = 'Lenke kopiert';
-    setTimeout(() => { btn.innerHTML = old; }, 1800);
-  } catch (e) {
-    if (e && e.name === 'AbortError') return;
-    try {
-      await navigator.clipboard.writeText(SHARE_URL);
-      const old = btn.innerHTML;
-      btn.textContent = 'Lenke kopiert';
-      setTimeout(() => { btn.innerHTML = old; }, 1800);
-    } catch (_) {
-      prompt('Kopier lenken:', SHARE_URL);
-    }
-  }
+function setTheme(theme, persist=false) {
+  const dark=theme==='dark';
+  document.documentElement.dataset.theme=dark?'dark':'light';
+  document.documentElement.style.colorScheme=dark?'dark':'light';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',dark?'#071421':'#f4f6f8');
+  themeToggle.setAttribute('aria-pressed',String(dark));
+  themeToggle.setAttribute('aria-label',dark?'Bytt til lys modus':'Bytt til mørk modus');
+  $('theme-label').textContent=dark?'Lys modus':'Mørk modus';
+  if(persist) try { localStorage.setItem(THEME_STORAGE_KEY,dark?'dark':'light'); } catch {}
 }
 
-$('share').addEventListener('click', shareSite);
+setTheme(document.documentElement.dataset.theme || 'light');
+themeToggle.addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark',true));
+const systemTheme=window.matchMedia?.('(prefers-color-scheme: dark)');
+systemTheme?.addEventListener?.('change',event=>{
+  let stored=null;
+  try { stored=localStorage.getItem(THEME_STORAGE_KEY); } catch {}
+  if(!stored) setTheme(event.matches?'dark':'light');
+});
 
 const menuToggle = $('menu-toggle');
 const siteMenuPanel = $('site-menu-panel');
