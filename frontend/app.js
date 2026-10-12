@@ -394,6 +394,11 @@ function routeTime(stop) {
   if(events.length) return events.join(' · ');
   if (stop.actual) return `${esc(stop.actual)}`;
   if (stop.expected) return `Forventet ${esc(stop.expected)}`;
+  if (stop.planned && stop.planned_date) {
+    const date=new Date(`${stop.planned_date}T12:00:00Z`);
+    const label=Number.isNaN(date.getTime()) ? stop.planned_date : noticeDateFmt.format(date);
+    return `Planlagt ${esc(label)} kl. ${esc(stop.planned)}`;
+  }
   if (stop.passing && stop.planned) return `Planlagt passering ${esc(stop.planned)}`;
   if (stop.planned) return `Planlagt ${esc(stop.planned)}`;
   return 'Tid ikke oppgitt';

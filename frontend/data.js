@@ -570,10 +570,41 @@ export function cancelledTrainNumbersForDate(journeys=[], trainNumbers=[], date)
     String(journey.journey_id || '').endsWith(`:${date}`) || journey.route?.some(call=>isoDate(call.planned_iso)===date)
   ) && (journey.cancelled || journey.route?.every(call=>call.status_raw==='cancelled'))).map(journey=>String(journey.train_no)));
 }
-export function mergeDailyGraphResponses(responses=[], expected=responses.length) {
+function mergeCrossMidnightWorkTrains(trains=[], date='') {
+  const used=new Set(), merged=[];
+  for(let index=0;index<trains.length;index++) {
+    const train=trains[index], route=train.route || [];
+    if(!train.work_hint || !route.length || !route.some(stop=>Number(stop.minute)>=18*60)) continue;
+    if(used.has(index)) continue;
+    const lateMinute=Math.max(...route.map(stop=>Number(stop.minute)));
+    const earlyIndex=trains.findIndex((candidate,candidateIndex)=>candidateIndex!==index && !used.has(candidateIndex) &&
+      candidate.work_hint && String(candidate.train_no)===String(train.train_no) &&
+      Number(candidate.line_number)===Number(train.line_number) &&
+      (candidate.route || []).some(stop=>Number(stop.minute)<=12*60) &&
+      Math.min(...candidate.route.map(stop=>Number(stop.minute)))+1440-lateMinute<=12*60);
+    if(earlyIndex<0) continue;
+    const early=trains[earlyIndex], previousDate=date?addDays(date,-1):'';
+    used.add(index); used.add(earlyIndex);
+    const combinedRoute=[
+      ...route.map(stop=>({...stop,...(previousDate?{date:previousDate}:{})})),
+      ...early.route.map(stop=>({...stop,...(date?{date}:{})})),
+    ];
+    merged.push({...train,
+      journey_id:`graph:${date || 'unknown'}:${train.line_number}:${train.train_no}:${route[0]?.time || ''}:overnight`,
+      destination_code:early.route.at(-1)?.code || train.destination_code,
+      work_hint:true,cancelled_hint:Boolean(train.cancelled_hint || early.cancelled_hint),
+      crosses_midnight:true,route:combinedRoute,
+    });
+  }
+  return [...merged,...trains.filter((_train,index)=>!used.has(index))];
+}
+
+export function mergeDailyGraphResponses(responses=[], expected=responses.length, date='') {
   const loaded=responses.filter(Boolean);
-  const possible=[...new Map(loaded.flatMap(response=>response.possible_work_trains || [])
+  const graphDate=date || loaded.map(response=>response.date).find(Boolean) || '';
+  const distinct=[...new Map(loaded.flatMap(response=>response.possible_work_trains || [])
     .map(train=>[train.journey_id || `${train.line_number}:${train.train_no}:${train.origin_code}:${train.destination_code}`,train])).values()];
+  const possible=mergeCrossMidnightWorkTrains(distinct,graphDate);
   return {
     trains:[...new Set(loaded.flatMap(response=>response.trains || []).map(String))],
     possible_work_trains:possible,
@@ -596,12 +627,21 @@ function clockDistance(first,second) {
 }
 const MIN_OPERATIONAL_SECTION_MINUTES=60;
 
+function graphStopsAt(train, locationCode) {
+  return (train?.route || []).filter(stop=>stop.code===locationCode);
+}
+
+function closestGraphStop(train, locationCode, time) {
+  return graphStopsAt(train,locationCode)
+    .sort((a,b)=>clockDistance(a.time,time)-clockDistance(b.time,time))[0] || null;
+}
+
 export function applyGraphCancellations(items=[], graphResult={}, date='', locationCode='') {
   const cancelled=graphResult.cancelled_graph_trains || [];
   if(!cancelled.length) return items;
   return items.map(item=>{
     const matches=cancelled.filter(train=>String(train.train_no)===String(item.train_no));
-    const graphTrain=matches.map(train=>({train,stop:(train.route || []).find(stop=>stop.code===locationCode)}))
+    const graphTrain=matches.map(train=>({train,stop:closestGraphStop(train,locationCode,item.planned_time || item.time)}))
       .filter(match=>match.stop && clockDistance(match.stop.time,item.planned_time || item.time)<=30)
       .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time))[0]?.train;
     if(!graphTrain) return item;
@@ -614,7 +654,7 @@ export function applyGraphCancellations(items=[], graphResult={}, date='', locat
 }
 
 function graphTrainForItem(item, graphTrains=[], locationCode='') {
-  return graphTrains.map(train=>({train,stop:(train.route || []).find(stop=>stop.code===locationCode)}))
+  return graphTrains.map(train=>({train,stop:closestGraphStop(train,locationCode,item.planned_time || item.time)}))
     .filter(match=>String(match.train.train_no)===String(item.train_no) && match.stop &&
       clockDistance(match.stop.time,item.planned_time || item.time)<=30)
     .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time) ||
@@ -626,7 +666,8 @@ function addGraphRoutes(items, graphTrains, date, locationCode, names) {
     const graphTrain=graphTrainForItem(item,graphTrains,locationCode);
     if(!graphTrain) return item;
     return {...item,
-      graph_route:(graphTrain.route || []).map(stop=>({code:stop.code,name:names.get(stop.code) || stop.code,time:stop.time})),
+      graph_route:(graphTrain.route || []).map(stop=>({code:stop.code,name:names.get(stop.code) || stop.code,time:stop.time,
+        ...(stop.date?{date:stop.date}:{})})),
       graph_url:dailyGraphUrl(date,graphTrain.line_number),
     };
   });
@@ -717,7 +758,7 @@ async function getDailyGraphs(date, locationCode) {
     }
     return null;
   }));
-  return mergeDailyGraphResponses(responses,requests.length);
+  return mergeDailyGraphResponses(responses,requests.length,date);
   })();
   dailyGraphCache.set(cacheKey,entry);
   try {
@@ -758,10 +799,12 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   }
   const graphOnly=possibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no)) &&
     (train.cancelled_hint || !cancelledNumbers.has(String(train.train_no)))).flatMap(train=>{
-    const stop=(train.route || []).find(item=>item.code===locationCode);
+    const locationStops=graphStopsAt(train,locationCode);
+    const stop=locationStops.find(item=>item.date===date) || locationStops[0];
     if(!stop || stop.time<fromTime || stop.time>toTime) return [];
     const metadata=metadataJourneyForTrain(metadataPlan.journeys,train.train_no,date);
-    const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time}));
+    const route=(train.route || []).map(item=>({code:item.code,name:names.get(item.code) || item.code,time:item.time,
+      ...(item.date?{date:item.date}:{})}));
     const singlePoint=route.length===1;
     return [{journey_id:train.journey_id,train_no:String(train.train_no),line:metadata?.line || `Graf ${train.line_number}`,
       category:metadata?.category && metadata.category!=='Ukjent'?metadata.category:train.work_hint?'Bane NOR-bestilt':'Ukjent',
@@ -967,6 +1010,7 @@ export function mergeDetailRouteWithGraph(detail, graphRoute=[], locationCode=''
     if(routeIndex!=null) return route[routeIndex];
     return {
       code:point.code,name:point.name || point.code,planned:point.time,expected:null,actual:null,
+      ...(point.date?{planned_date:point.date}:{}),
       planned_arrival:null,expected_arrival:null,actual_arrival:null,
       planned_departure:null,expected_departure:null,actual_departure:null,
       platform:'',passing:true,status:'Planlagt passering',state:'planned',
@@ -1022,7 +1066,8 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
       origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
       source:item.source,source_url:item.graph_url || null,
       route:(item.graph_route || []).map(stop=>({code:stop.code,name:stop.name,planned:stop.time,expected:null,actual:null,
-        planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:stop.time,expected_departure:null,
+        ...(stop.date?{planned_date:stop.date}:{}),
+        planned_arrival:null,expected_arrival:null,actual_arrival:null,planned_departure:null,expected_departure:null,
         actual_departure:null,platform:'',passing:false,status:'Hentet fra rutegraf, ingen sanntidsdata',state:'planned',selected:stop.code===locationCode}))};
   }
   let dataset;

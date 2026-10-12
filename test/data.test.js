@@ -478,6 +478,37 @@ test('enriches a graph-only passing train with complete SIRI PT metadata', async
   }
 });
 
+test('shows an overnight work train on the selected next day with its full interval', async () => {
+  const originalFetch=globalThis.fetch;
+  const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
+  const early={date:'2099-01-06',graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:early',train_no:'56020',line_number:24,origin_code:'HLD',destination_code:'HLD',work_hint:true,
+    route:[{code:'HLD',time:'07:00',minute:420}],
+  }]};
+  const late={date:'2099-01-06',graphs_loaded:1,graphs_expected:1,possible_work_trains:[{
+    journey_id:'graph:late',train_no:'56020',line_number:24,origin_code:'HLD',destination_code:'HLD',work_hint:true,
+    route:[{code:'HLD',time:'22:51',minute:1371}],
+  }]};
+  globalThis.fetch=async url=>{
+    const path=String(url);
+    if(path.startsWith('/api/pt')) return new Response(emptyPt,{status:200});
+    if(path.startsWith('/api/daily-graph-lines')) return Response.json({location:'HLD',lines:[24]});
+    if(path.startsWith('/api/daily-graphs')) return Response.json(path.includes('part=1')?early:late);
+    throw new Error(`Uventet kall: ${path}`);
+  };
+  try {
+    const result=await queryTrains({locationCode:'HLD',location:'Halden',date:'2099-01-06',today:'2099-01-05',fromTime:'00:00',toTime:'23:59'});
+    assert.equal(result.items.length,1);
+    assert.equal(result.items[0].train_no,'56020');
+    assert.equal(result.items[0].time,'07:00');
+    assert.deepEqual(result.items[0].graph_route.map(stop=>[stop.date,stop.time]),[
+      ['2099-01-05','22:51'],['2099-01-06','07:00'],
+    ]);
+  } finally {
+    globalThis.fetch=originalFetch;
+  }
+});
+
 test('labels blue graph trains as Bane NOR ordered and other unknown graph trains as unknown', async () => {
   const originalFetch=globalThis.fetch;
   const emptyPt='<Siri><ServiceDelivery><ProductionTimetableDelivery><DatedTimetableVersionFrame></DatedTimetableVersionFrame></ProductionTimetableDelivery></ServiceDelivery></Siri>';
@@ -656,6 +687,39 @@ test('merges independently processed daily graph lines', () => {
     operational_markers:[],operational_sections:[],
     graphs_loaded:2,graphs_expected:3,source_time:'2026-10-06T10:02:00Z',checked_at:'2026-10-06T10:03:00Z',
   });
+});
+
+test('joins split overnight work-train times into one complete route', () => {
+  const merged=mergeDailyGraphResponses([
+    {date:'2026-10-13',graphs_loaded:1,possible_work_trains:[{
+      journey_id:'graph:early',train_no:'56020',line_number:24,origin_code:'HLD',destination_code:'HLD',work_hint:true,
+      route:[{code:'HLD',time:'07:00',minute:420}],
+    }]},
+    {date:'2026-10-13',graphs_loaded:1,possible_work_trains:[{
+      journey_id:'graph:late',train_no:'56020',line_number:24,origin_code:'HLD',destination_code:'HLD',work_hint:true,
+      route:[{code:'HLD',time:'22:51',minute:1371}],
+    }]},
+  ],2,'2026-10-13');
+  assert.equal(merged.possible_work_trains.length,1);
+  assert.equal(merged.possible_work_trains[0].crosses_midnight,true);
+  assert.deepEqual(merged.possible_work_trains[0].route,[
+    {code:'HLD',time:'22:51',minute:1371,date:'2026-10-12'},
+    {code:'HLD',time:'07:00',minute:420,date:'2026-10-13'},
+  ]);
+});
+
+test('does not join overnight endpoints after the work-train number changes', () => {
+  const merged=mergeDailyGraphResponses([
+    {date:'2026-10-12',graphs_loaded:1,possible_work_trains:[{
+      journey_id:'graph:early',train_no:'54702',line_number:24,work_hint:true,
+      route:[{code:'HLD',time:'07:00',minute:420}],
+    }]},
+    {date:'2026-10-12',graphs_loaded:1,possible_work_trains:[{
+      journey_id:'graph:late',train_no:'56020',line_number:24,work_hint:true,
+      route:[{code:'HLD',time:'22:51',minute:1371}],
+    }]},
+  ],2,'2026-10-12');
+  assert.deepEqual(merged.possible_work_trains.map(train=>train.train_no),['54702','56020']);
 });
 
 test('builds a cross-midnight section notice from split graph markers', () => {
