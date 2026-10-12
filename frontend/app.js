@@ -394,6 +394,7 @@ function routeTime(stop) {
   if(events.length) return events.join(' · ');
   if (stop.actual) return `${esc(stop.actual)}`;
   if (stop.expected) return `Forventet ${esc(stop.expected)}`;
+  if (stop.passing && stop.planned) return `Planlagt passering ${esc(stop.planned)}`;
   if (stop.planned) return `Planlagt ${esc(stop.planned)}`;
   return 'Tid ikke oppgitt';
 }

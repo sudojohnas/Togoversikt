@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
+import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeDetailRouteWithGraph, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -408,6 +408,29 @@ test('enriches route codes with full SIRI names', () => {
   assert.deepEqual(enrichJourneyRouteNames(journey,metadata).route.map(x=>x.name),['Nationaltheatret','Leirsund','Oslo S']);
 });
 
+test('adds operational graph points to a SIRI detail route as passings', () => {
+  const detail={source:'Bane NOR SIRI PT',route:[
+    {code:'RÅD',name:'Råde',planned:'00:00',passing:false,state:'planned'},
+    {code:'FRE',name:'Fredrikstad',planned:'00:13',passing:false,state:'planned'},
+    {code:'SBO',name:'Sarpsborg',planned:'00:26',passing:false,state:'planned'},
+    {code:'HLD',name:'Halden',planned:'00:46',passing:false,state:'planned',selected:true},
+  ]};
+  const graphRoute=[
+    {code:'ØRM',name:'Østre linjes møte',time:'00:04'},
+    {code:'FRE',name:'Fredrikstad',time:'00:13'},
+    {code:'SBO',name:'Sarpsborg',time:'00:26'},
+    {code:'BG',name:'Berg',time:'00:41'},
+    {code:'HLD',name:'Halden',time:'00:46'},
+  ];
+  const merged=mergeDetailRouteWithGraph(detail,graphRoute,'HLD');
+  assert.deepEqual(merged.route.map(stop=>stop.code),['RÅD','ØRM','FRE','SBO','BG','HLD']);
+  assert.equal(merged.route.find(stop=>stop.code==='BG').passing,true);
+  assert.equal(merged.route.find(stop=>stop.code==='BG').status,'Planlagt passering');
+  assert.equal(merged.route.find(stop=>stop.code==='FRE').passing,false);
+  assert.equal(merged.route.find(stop=>stop.code==='HLD').selected,true);
+  assert.equal(merged.source,'Bane NOR SIRI PT + rutegraf');
+});
+
 test('finds a stop by code, official name, and a close spelling', () => {
   const location={code:'NTH',name:'Nationaltheatret',kind:'Stoppested'};
   assert.equal(locationSearchRank(location,'NTH').rank,1);
@@ -528,6 +551,7 @@ test('marks a planned SIRI train as cancelled when the graph says so', async () 
     assert.equal(result.items[0].train_no,'102');
     assert.equal(result.items[0].status,'Innstilt ifølge rutegraf');
     assert.equal(result.items[0].graph_cancelled,true);
+    assert.deepEqual(result.items[0].graph_route.map(stop=>stop.code),['KAM']);
   } finally {
     globalThis.fetch=originalFetch;
   }

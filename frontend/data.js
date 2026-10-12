@@ -613,6 +613,25 @@ export function applyGraphCancellations(items=[], graphResult={}, date='', locat
   });
 }
 
+function graphTrainForItem(item, graphTrains=[], locationCode='') {
+  return graphTrains.map(train=>({train,stop:(train.route || []).find(stop=>stop.code===locationCode)}))
+    .filter(match=>String(match.train.train_no)===String(item.train_no) && match.stop &&
+      clockDistance(match.stop.time,item.planned_time || item.time)<=30)
+    .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time) ||
+      (b.train.route?.length || 0)-(a.train.route?.length || 0))[0]?.train || null;
+}
+
+function addGraphRoutes(items, graphTrains, date, locationCode, names) {
+  return items.map(item=>{
+    const graphTrain=graphTrainForItem(item,graphTrains,locationCode);
+    if(!graphTrain) return item;
+    return {...item,
+      graph_route:(graphTrain.route || []).map(stop=>({code:stop.code,name:names.get(stop.code) || stop.code,time:stop.time})),
+      graph_url:dailyGraphUrl(date,graphTrain.line_number),
+    };
+  });
+}
+
 function longestOperationalAnchorSpan(anchors=[]) {
   let longest=0;
   for(const start of anchors) for(const end of anchors) {
@@ -715,6 +734,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   const response=await getDailyGraphs(date,locationCode);
   if(!response.graphs_loaded) return {items,operational_notices:[],source_time:plan.source_time,cancelled_graph_trains:[]};
   const possibleWorkTrains=response.possible_work_trains || [];
+  const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
   const cancelledGraphTrains=possibleWorkTrains.filter(train=>train.cancelled_hint);
   // SIRI PT is the primary plan. A daily graph may add pass-through trains,
   // but must never turn a departure-only SIRI call into a guessed arrival (or
@@ -722,7 +742,7 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   // Yellow and light-brown graph paths mean cancelled and withdrawn trains;
   // they must also override an otherwise present SIRI timetable entry.
   const graphResult={...response,cancelled_graph_trains:cancelledGraphTrains};
-  const confirmed=applyGraphCancellations(items,graphResult,date,locationCode);
+  const confirmed=addGraphRoutes(applyGraphCancellations(items,graphResult,date,locationCode),possibleWorkTrains,date,locationCode,names);
   const siriCallNumbers=new Set(plan.journeys.filter(journey=>{
     const call=selectedCall(journey,locationCode);
     return call && [call.aimed_arrival_iso,call.aimed_departure_iso,call.planned_iso].some(value=>isoDate(value)===date);
@@ -736,7 +756,6 @@ async function graphFallbackItems(plan, locationCode, date, fromTime, toTime, ev
   if(missingNumbers.length && (date===today || date===addDays(today,1))) {
     try { cancelledNumbers=cancelledTrainNumbersForDate((await getLiveEt()).journeys,missingNumbers,date); } catch {}
   }
-  const locationItems=await locations(), names=new Map(locationItems.map(item=>[item.code,item.name]));
   const graphOnly=possibleWorkTrains.filter(train=>!siriCallNumbers.has(String(train.train_no)) &&
     (train.cancelled_hint || !cancelledNumbers.has(String(train.train_no)))).flatMap(train=>{
     const stop=(train.route || []).find(item=>item.code===locationCode);
@@ -927,6 +946,55 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
     operational_notices:graphResult.operational_notices,source_time:archive?.source_time || graphResult.source_time,
     archive_complete:archive?.archive_complete || false,mode:archive?'archived':'planned',location,location_code:locationCode,date};
 }
+
+export function mergeDetailRouteWithGraph(detail, graphRoute=[], locationCode='') {
+  if(!detail?.route?.length || !graphRoute?.length) return detail;
+  const route=detail.route, matches=[];
+  let previousRouteIndex=-1;
+  for(let graphIndex=0;graphIndex<graphRoute.length;graphIndex++) {
+    const point=graphRoute[graphIndex];
+    const routeIndex=route.findIndex((stop,index)=>index>previousRouteIndex && stop.code===point.code &&
+      clockDistance(stop.planned || stop.actual || stop.expected,point.time)<=30);
+    if(routeIndex<0) continue;
+    matches.push({graphIndex,routeIndex});
+    previousRouteIndex=routeIndex;
+  }
+  if(!matches.length) return detail;
+  const routeMatchByGraph=new Map(matches.map(match=>[match.graphIndex,match.routeIndex]));
+  const firstRouteIndex=matches[0].routeIndex, lastRouteIndex=matches.at(-1).routeIndex;
+  const graphStops=graphRoute.map((point,index)=>{
+    const routeIndex=routeMatchByGraph.get(index);
+    if(routeIndex!=null) return route[routeIndex];
+    return {
+      code:point.code,name:point.name || point.code,planned:point.time,expected:null,actual:null,
+      planned_arrival:null,expected_arrival:null,actual_arrival:null,
+      planned_departure:null,expected_departure:null,actual_departure:null,
+      platform:'',passing:true,status:'Planlagt passering',state:'planned',
+      selected:point.code===locationCode,graph_passing:true,
+    };
+  });
+  const matchedRouteIndexes=new Set(matches.map(match=>match.routeIndex));
+  const missingSiriStops=route.slice(firstRouteIndex,lastRouteIndex+1)
+    .filter((stop,index)=>!matchedRouteIndexes.has(firstRouteIndex+index));
+  for(const stop of missingSiriStops) {
+    const stopTime=stop.planned || stop.actual || stop.expected;
+    let insertAt=graphStops.findIndex(point=>clockDistance(stopTime,point.planned || point.actual || point.expected)<=30 &&
+      minutes(stopTime)<minutes(point.planned || point.actual || point.expected));
+    if(insertAt<0) insertAt=graphStops.length;
+    graphStops.splice(insertAt,0,stop);
+  }
+  const merged=[...route.slice(0,firstRouteIndex),...graphStops,...route.slice(lastRouteIndex+1)];
+  for(let index=0;index<merged.length;index++) {
+    const stop=merged[index];
+    if(!stop.graph_passing) continue;
+    if(merged.slice(index+1).some(later=>!later.graph_passing && ['recorded','current'].includes(later.state))) {
+      stop.state='recorded';
+      stop.status='Passert';
+    }
+  }
+  return {...detail,route:merged,source:detail.source?.includes('rutegraf')?detail.source:`${detail.source} + rutegraf`};
+}
+
 export function detailFromJourney(journey, locationCode, sourceTime) {
   if(!journey) return null; const selected=selectedCall(journey,locationCode), current=currentPosition(journey);
   const currentIndex=current ? journey.route.indexOf(current) : -1;
@@ -948,6 +1016,7 @@ export function markGraphCancelledDetail(detail) {
 }
 
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
+  const withGraph=detail=>mergeDetailRouteWithGraph(detail,item?.graph_route || [],locationCode);
   if(item?.graph_only) {
     return {journey_id:item.journey_id,train_no:item.train_no,line:item.line,category:item.category || 'Ukjent',operator:item.operator || '',
       origin:item.origin,destination:item.destination,status:'Hentet fra rutegraf, ingen sanntidsdata',current_location:'Ikke tilgjengelig',source_time:null,
@@ -968,16 +1037,16 @@ export async function trainDetail({journeyId,date,locationCode,today,item,force=
             if(meta) j={...enrichJourneyRouteNames(j,meta),origin:meta.origin || j.origin,destination:meta.destination || j.destination,operator:meta.operator || j.operator,category:meta.category || j.category};
           } catch {}
         }
-        return detailFromJourney(j,locationCode,dataset.source_time);
+        return withGraph(detailFromJourney(j,locationCode,dataset.source_time));
       }
     } catch {}
-    if(item) { dataset=await getFilteredEt(item,force); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return detailFromJourney(j,locationCode,dataset.source_time); }
+    if(item) { dataset=await getFilteredEt(item,force); let j=dataset.journeys.find(x=>x.journey_id===journeyId); if(j) return withGraph(detailFromJourney(j,locationCode,dataset.source_time)); }
     dataset=await getLiveEt(true);
     const liveJourney=dataset.journeys.find(x=>x.journey_id===journeyId);
-    if(liveJourney) return detailFromJourney(liveJourney,locationCode,dataset.source_time);
+    if(liveJourney) return withGraph(detailFromJourney(liveJourney,locationCode,dataset.source_time));
     // A planned journey may be absent from every live feed, for example when
     // it is cancelled before Togkart starts publishing it.
     dataset=await getPlan(date,locationCode,force,item?.train_no?[item.train_no]:[],true);
   } else dataset=await getPlan(date,locationCode,force,item?.train_no?[item.train_no]:[],true);
-  return detailFromJourney(dataset.journeys.find(x=>x.journey_id===journeyId),locationCode,dataset.source_time);
+  return withGraph(detailFromJourney(dataset.journeys.find(x=>x.journey_id===journeyId),locationCode,dataset.source_time));
 }
