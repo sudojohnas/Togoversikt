@@ -74,6 +74,10 @@ test('marks an early actual arrival at the destination as arrived even when SIRI
   };
   assert.equal(smFallbackStatus(call), 'Ankommet');
   assert.equal(journeyCallStatus({route:[call]}, call), 'Ankommet');
+  assert.deepEqual(
+    filterLiveItems([{train_no:'1149',time:'12:56',actual_time:'12:55',status:'Ankommet'}],'12:54','23:59'),
+    [],
+  );
 });
 
 test('marks a recorded destination as arrived even without an explicit actual time', () => {
@@ -313,7 +317,7 @@ test('removes stale no-information countdowns from completed calls', () => {
     {train_no:'2',time:'17:05',status:'Passert',actual_time:null,unconfirmed_remaining_minutes:17},
   ];
   assert.deepEqual(filterLiveItems(completed,'17:00','23:59').map(item=>[item.status,item.unconfirmed_remaining_minutes]),[
-    ['Ankommet',null],['Passert',null],
+    ['Passert',null],
   ]);
 });
 

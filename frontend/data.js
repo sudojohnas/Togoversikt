@@ -414,8 +414,11 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
   return items.filter(item=>{
     if(!item.time || item.time>toTime) return false;
     const status=String(item.status || '').toLowerCase();
+    // An actual terminal arrival completes the journey immediately. In
+    // particular, do not retain an early arrival until its scheduled time.
+    if(status.includes('ankommet')) return false;
     if(item.time>=fromTime) return true;
-    if(status.includes('passert') || status.includes('ankommet')) return false;
+    if(status.includes('passert')) return false;
     if(!includeEarlier) return false;
     // Keep upcoming cancellations on the board, but remove them once their
     // scheduled time has passed just like other completed calls.
@@ -424,7 +427,7 @@ export function filterLiveItems(items, fromTime, toTime, includeEarlier=true) {
     return Boolean(item.actual_time) || unconfirmedAge<UNCONFIRMED_OVERDUE_MINUTES;
   }).map(item=>{
     const status=String(item.status || '').toLowerCase();
-    if(status.includes('passert') || status.includes('ankommet') || status.includes('innstilt')) {
+    if(status.includes('passert') || status.includes('innstilt')) {
       return {...item,unconfirmed_remaining_minutes:null};
     }
     if(item.time<fromTime && !item.actual_time) {
