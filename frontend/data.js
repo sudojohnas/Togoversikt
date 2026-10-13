@@ -649,7 +649,8 @@ export function applyGraphCancellations(items=[], graphResult={}, date='', locat
       .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time))[0]?.train;
     if(!graphTrain) return item;
     const source=String(item.source || '');
-    return {...item,status:'Innstilt ifølge rutegraf',passing:false,graph_cancelled:true,graph_fallback:true,
+    const siriCancelled=source.includes('SIRI') && String(item.status || '').toLowerCase().includes('innstilt');
+    return {...item,status:siriCancelled?item.status:'Innstilt ifølge rutegraf',passing:false,graph_cancelled:true,graph_fallback:true,
       graph_url:dailyGraphUrl(date,graphTrain.line_number),
       ...((graphResult.checked_at || graphResult.source_time)?{graph_checked_at:graphResult.checked_at || graphResult.source_time}:{}),
       source:source.includes('rutegraf')?source:`${source}${source?' + ':''}Bane NOR rutegraf`};

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeDetailRouteWithGraph, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
+import { applyGraphCancellations, buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeDetailRouteWithGraph, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -590,6 +590,15 @@ test('marks a planned SIRI train as cancelled when the graph says so', async () 
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('keeps the plain cancellation label when SIRI also reports the train cancelled', () => {
+  const items=[{train_no:'830',time:'19:19',planned_time:'19:19',status:'Innstilt',source:'Bane NOR SIRI ET'}];
+  const graph={cancelled_graph_trains:[{train_no:'830',line_number:5,route:[{code:'SKP',time:'19:19'}]}]};
+  const [result]=applyGraphCancellations(items,graph,'2026-10-13','SKP');
+  assert.equal(result.status,'Innstilt');
+  assert.equal(result.graph_cancelled,true);
+  assert.equal(result.source,'Bane NOR SIRI ET + Bane NOR rutegraf');
 });
 
 test('recognizes a cancelled SIRI journey only on the matching date', () => {
