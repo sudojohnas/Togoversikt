@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { applyGraphCancellations, buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeDetailRouteWithGraph, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
+import { applyGraphCancellations, buildGraphOperationalNotices, callDisplayTimes, callWindowState, cancelledTrainNumbersForDate, combineEventItems, dailyGraphName, dailyGraphUrl, detailFromJourney, enrichJourneyRouteNames, filterLiveItems, journeyCallStatus, locationSearchRank, markGraphCancelledDetail, mergeDailyGraphResponses, mergeDetailRouteWithGraph, mergeLiveItems, metadataJourneyForTrain, parseTogkart, queryTrains, routeGraphsForLocation, shouldApplyGraphCancellationDetail, smFallbackStatus, trainGraphsForJourney } from '../frontend/data.js';
 
 const baseCall = {
   planned_iso: '2026-09-27T08:20:00+02:00',
@@ -599,6 +599,8 @@ test('keeps the plain cancellation label when SIRI also reports the train cancel
   assert.equal(result.status,'Innstilt');
   assert.equal(result.graph_cancelled,true);
   assert.equal(result.source,'Bane NOR SIRI ET + Bane NOR rutegraf');
+  assert.equal(shouldApplyGraphCancellationDetail(result),false);
+  assert.equal(shouldApplyGraphCancellationDetail({...result,status:'Innstilt ifølge rutegraf'}),true);
 });
 
 test('recognizes a cancelled SIRI journey only on the matching date', () => {

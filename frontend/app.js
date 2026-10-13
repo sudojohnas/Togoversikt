@@ -1,4 +1,4 @@
-import { dailyGraphName, markGraphCancelledDetail, searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, trainDetail, trainGraphsForJourney } from './data.js';
+import { dailyGraphName, markGraphCancelledDetail, searchLocations as searchLocationData, nearestLocation, queryTrains, routeGraphsForLocation, shouldApplyGraphCancellationDetail, trainDetail, trainGraphsForJourney } from './data.js';
 import { mergeOperationalNotices, operationalNoticesForLocation } from './operational-notices.js';
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -420,7 +420,7 @@ async function openDetail(itemKey, force=false) {
       force,
     });
     if (!x) throw new Error('Toget finnes ikke lenger i datasettet');
-    if (item?.graph_cancelled) {
+    if (shouldApplyGraphCancellationDetail(item)) {
       Object.assign(x,markGraphCancelledDetail(x),{source_url:item.graph_url || x.source_url});
     }
     const route = (x.route || []).map(stop => {

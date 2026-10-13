@@ -1069,6 +1069,10 @@ export function markGraphCancelledDetail(detail) {
   return {...detail,status:'Innstilt ifølge rutegraf',route:(detail.route || []).map(stop=>({...stop,status:'Innstilt'}))};
 }
 
+export function shouldApplyGraphCancellationDetail(item) {
+  return Boolean(item?.graph_cancelled && String(item.status || '').toLowerCase().includes('ifølge rutegraf'));
+}
+
 export async function trainDetail({journeyId,date,locationCode,today,item,force=false}) {
   const withGraph=detail=>mergeDetailRouteWithGraph(detail,item?.graph_route || [],locationCode);
   if(item?.graph_only) {
