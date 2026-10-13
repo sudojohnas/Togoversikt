@@ -177,7 +177,7 @@ function statusCell(x) {
   const fetched = new Date(x.graph_checked_at || '');
   const fetchedLabel = Number.isNaN(fetched.getTime()) ? ''
     : `kl. ${localTime(fetched)} ${localDate(fetched) === localDate(new Date()) ? 'i dag' : osloShortDateFmt.format(fetched)}`;
-  if (s.includes('Innstilt') && x.graph_cancelled) {
+  if (s.includes('Innstilt') && shouldApplyGraphCancellationDetail(x)) {
     return `<strong>Innstilt</strong><small>Funnet innstilt i rutegraf${fetchedLabel ? ` · ${esc(fetchedLabel)}` : ''}</small>`;
   }
   if (x.graph_only) {
