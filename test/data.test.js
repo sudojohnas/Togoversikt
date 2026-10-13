@@ -435,6 +435,24 @@ test('adds operational graph points to a SIRI detail route as passings', () => {
   assert.equal(merged.source,'Bane NOR SIRI PT + rutegraf');
 });
 
+test('marks graph passings between SIRI-cancelled stops as cancelled', () => {
+  const detail={source:'Bane NOR SIRI ET',route:[
+    {code:'TBG',name:'Tønsberg',planned:'20:00',status:'Innstilt',state:'estimated'},
+    {code:'HSD',name:'Holmestrand',planned:'20:20',status:'Innstilt',state:'estimated'},
+    {code:'DRM',name:'Drammen',planned:'20:40',status:'I rute',state:'estimated'},
+  ]};
+  const graphRoute=[
+    {code:'TBG',name:'Tønsberg',time:'20:00'},
+    {code:'NYK',name:'Nykirke',time:'20:10'},
+    {code:'HSD',name:'Holmestrand',time:'20:20'},
+    {code:'KOB',name:'Kobbervik',time:'20:30'},
+    {code:'DRM',name:'Drammen',time:'20:40'},
+  ];
+  const merged=mergeDetailRouteWithGraph(detail,graphRoute,'TBG');
+  assert.equal(merged.route.find(stop=>stop.code==='NYK').status,'Innstilt');
+  assert.equal(merged.route.find(stop=>stop.code==='KOB').status,'Planlagt passering');
+});
+
 test('finds a stop by code, official name, and a close spelling', () => {
   const location={code:'NTH',name:'Nationaltheatret',kind:'Stoppested'};
   assert.equal(locationSearchRank(location,'NTH').rank,1);
@@ -593,10 +611,11 @@ test('marks a planned SIRI train as cancelled when the graph says so', async () 
 });
 
 test('keeps the plain cancellation label when SIRI also reports the train cancelled', () => {
-  const items=[{train_no:'830',time:'19:19',planned_time:'19:19',status:'Innstilt',source:'Bane NOR SIRI ET'}];
+  const items=[{train_no:'830',time:'19:19',planned_time:'19:19',status:'Innstilt',source:'Bane NOR SIRI ET',siri_cancelled:true}];
   const graph={cancelled_graph_trains:[{train_no:'830',line_number:5,route:[{code:'SKP',time:'19:19'}]}]};
   const [result]=applyGraphCancellations(items,graph,'2026-10-13','SKP');
   assert.equal(result.status,'Innstilt');
+  assert.equal(result.siri_cancelled,true);
   assert.equal(result.graph_cancelled,true);
   assert.equal(result.source,'Bane NOR SIRI ET + Bane NOR rutegraf');
   assert.equal(shouldApplyGraphCancellationDetail(result),false);

@@ -400,6 +400,7 @@ function queryDataset(dataset, locationCode, selectedDate, fromTime, toTime, inc
       direction_ref:journey.direction_ref,time:clock,planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
       active_until_time:isoClock(activeUntil),
       platform:call.platform,passing:Boolean(call.passing),status:window.overdue && !String(baseStatus).includes('Forsinket')?'Forsinket':baseStatus,
+      ...(String(baseStatus).includes('Innstilt') && String(journey.source || '').includes('SIRI')?{siri_cancelled:true}:{}),
       unconfirmed_remaining_minutes:unconfirmedRemaining,
       current_location:current?.name || null,current_location_code:current?.code || null,source:journey.source,event_type:eventType});
   }
@@ -649,7 +650,8 @@ export function applyGraphCancellations(items=[], graphResult={}, date='', locat
       .sort((a,b)=>clockDistance(a.stop.time,item.planned_time || item.time)-clockDistance(b.stop.time,item.planned_time || item.time))[0]?.train;
     if(!graphTrain) return item;
     const source=String(item.source || '');
-    const siriCancelled=source.includes('SIRI') && String(item.status || '').toLowerCase().includes('innstilt');
+    const siriCancelled=item.siri_cancelled===true ||
+      (source.includes('SIRI') && String(item.status || '').toLowerCase().includes('innstilt'));
     return {...item,status:siriCancelled?item.status:'Innstilt ifølge rutegraf',passing:false,graph_cancelled:true,graph_fallback:true,
       graph_url:dailyGraphUrl(date,graphTrain.line_number),
       ...((graphResult.checked_at || graphResult.source_time)?{graph_checked_at:graphResult.checked_at || graphResult.source_time}:{}),
@@ -844,12 +846,13 @@ function parseSm(xml, locationCode, date, fromTime, toTime, includeOverdue=false
     const operator=j.OperatorRef || '', product=j.ProductCategoryRef || '', feature=j.ServiceFeatureRef || '';
     const id=j?.FramedVehicleJourneyRef?.DatedVehicleJourneyRef || visit.ItemIdentifier || `${j.VehicleRef || '–'}:${date}`;
     const display=callDisplayTimes(c,eventType);
+    const status=window.overdue?'Forsinket':smFallbackStatus(c,eventType);
     items.push({journey_id:id,train_no:j.VehicleRef || String(id).split(':')[0] || '–',line:j.LineRef || j.PublishedLineName || '',
       category:category(feature,product,operator),operator:OPERATOR_NAMES[operator] || operator || '',operator_code:operator,
       origin:j.OriginName || '',destination:j.DestinationName || '',direction_ref:j.DirectionRef || '',time:clock,
       planned_time:display.planned,expected_time:display.expected,actual_time:display.actual,
       active_until_time:isoClock(activeUntilIso(c,eventType)),platform:c.platform,passing:Boolean(c.passing),
-      status:window.overdue?'Forsinket':smFallbackStatus(c,eventType),current_location:null,source:'Bane NOR SIRI SM',event_type:eventType});
+      status,...(status==='Innstilt'?{siri_cancelled:true}:{}),current_location:null,source:'Bane NOR SIRI SM',event_type:eventType});
   }
   items.sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
   return {unsupported:false,items,source_time:delivery.ResponseTimestamp || service.ResponseTimestamp || null};
@@ -1044,6 +1047,13 @@ export function mergeDetailRouteWithGraph(detail, graphRoute=[], locationCode=''
     if(merged.slice(index+1).some(later=>!later.graph_passing && ['recorded','current'].includes(later.state))) {
       stop.state='recorded';
       stop.status='Passert';
+    }
+  }
+  const siriCancelledIndexes=merged.flatMap((stop,index)=>!stop.graph_passing && stop.status==='Innstilt'?[index]:[]);
+  if(siriCancelledIndexes.length>=2) {
+    const firstCancelled=siriCancelledIndexes[0], lastCancelled=siriCancelledIndexes.at(-1);
+    for(let index=firstCancelled+1;index<lastCancelled;index++) {
+      if(merged[index].graph_passing) merged[index].status='Innstilt';
     }
   }
   return {...detail,route:merged,source:detail.source?.includes('rutegraf')?detail.source:`${detail.source} + rutegraf`};
