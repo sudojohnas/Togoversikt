@@ -943,11 +943,17 @@ export async function queryTrains({locationCode,location,date,fromTime,toTime,to
       ]);
       const etItems=et ? queryDataset(et,locationCode,date,fromTime,toTime,false,eventType) : [];
       if(liveResult) {
-        const items=applyGraphCancellations(mergeLiveItems(graphResult.items,etItems,liveResult.items),graphResult,date,locationCode)
+        const items=filterLiveItems(
+          applyGraphCancellations(mergeLiveItems(graphResult.items,etItems,liveResult.items),graphResult,date,locationCode),
+          fromTime,toTime,false,
+        )
           .sort((a,b)=>a.time.localeCompare(b.time) || String(a.train_no).localeCompare(String(b.train_no),undefined,{numeric:true}));
         return {items,operational_notices:graphResult.operational_notices,source_time:et?.source_time || liveResult.live.source_time || null,mode:'live',location,location_code:locationCode,date};
       }
-      return {items:applyGraphCancellations(mergeLiveItems(graphResult.items,etItems),graphResult,date,locationCode),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
+      return {items:filterLiveItems(
+        applyGraphCancellations(mergeLiveItems(graphResult.items,etItems),graphResult,date,locationCode),
+        fromTime,toTime,false,
+      ),operational_notices:graphResult.operational_notices,source_time:et?.source_time || null,mode:'live',location,location_code:locationCode,date};
     }
     const smStartMinutes=Math.max(0,minutes(fromTime)-LIVE_LOOKBACK_MINUTES);
     const smStart=`${String(Math.floor(smStartMinutes/60)).padStart(2,'0')}:${String(smStartMinutes%60).padStart(2,'0')}`;
