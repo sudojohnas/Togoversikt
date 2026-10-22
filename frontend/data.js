@@ -453,6 +453,15 @@ export function mergeLiveItems(plannedItems=[], smItems=[], togkartItems=[]) {
     if(base) {
       const next={...base,...item,...(live?{graph_fallback:false}:{}),
         ...((base.graph_only || item.graph_only) && live?{graph_only:false}:{})};
+      // A later feed can lag behind Togkart at the terminal and still report
+      // the call as planned/delayed. Never discard already observed completion
+      // evidence, otherwise the generic 30-minute no-information timeout keeps
+      // an arrived train on the board.
+      const baseStatus=String(base.status || '').toLowerCase();
+      const itemStatus=String(item.status || '').toLowerCase();
+      if((baseStatus.includes('ankommet') || baseStatus.includes('passert')) &&
+        !itemStatus.includes('ankommet') && !itemStatus.includes('passert')) next.status=base.status;
+      if(!item.actual_time && base.actual_time) next.actual_time=base.actual_time;
       for(const [field,value] of Object.entries({
         origin:item.origin || base.origin,destination:item.destination || base.destination,
         operator:operator || item.operator,category:category || item.category,
@@ -609,11 +618,22 @@ export function mergeDailyGraphResponses(responses=[], expected=responses.length
   const distinct=[...new Map(loaded.flatMap(response=>response.possible_work_trains || [])
     .map(train=>[train.journey_id || `${train.line_number}:${train.train_no}:${train.origin_code}:${train.destination_code}`,train])).values()];
   const possible=mergeCrossMidnightWorkTrains(distinct,graphDate);
+  // Split graph requests can place a section label in one PDF part and its
+  // start/end path crossing in another. The endpoint deliberately returns the
+  // parsed work-train routes for both parts, so use those route points as
+  // operational marker fallbacks before building occupied-track intervals.
+  const routeMarkers=possible.filter(train=>train.work_hint).flatMap(train=>(train.route || []).map(stop=>({
+    train_no:train.train_no,line_number:train.line_number,station_code:stop.code,
+    time:stop.time,minute:Number(stop.minute),work_hint:true,
+  })));
+  const parsedMarkers=loaded.flatMap(response=>response.operational_markers || []);
+  const operationalMarkers=[...new Map([...routeMarkers,...parsedMarkers].map(marker=>[
+    [marker.line_number,marker.train_no,marker.station_code,marker.time].join(':'),marker,
+  ])).values()];
   return {
     trains:[...new Set(loaded.flatMap(response=>response.trains || []).map(String))],
     possible_work_trains:possible,
-    operational_markers:[...new Map(loaded.flatMap(response=>response.operational_markers || [])
-      .map(marker=>[[marker.line_number,marker.train_no,marker.station_code,marker.time].join(':'),marker])).values()],
+    operational_markers:operationalMarkers,
     operational_sections:[...new Map(loaded.flatMap(response=>response.operational_sections || [])
       .map(section=>[[section.line_number,section.train_no,(section.section_codes || []).join('-'),section.time].join(':'),section])).values()],
     graphs_loaded:loaded.reduce((sum,response)=>sum+(Number(response.graphs_loaded) || 0),0),

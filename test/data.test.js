@@ -300,6 +300,16 @@ test('retains a recently overdue train and a train confirmed at the platform', (
   );
 });
 
+test('keeps terminal completion when a lagging SIRI item is merged after Togkart', () => {
+  const planned={journey_id:'1149:2026-09-27',train_no:'1149',time:'12:56',planned_time:'12:56',actual_time:null,status:'Planlagt'};
+  const arrived={...planned,time:'12:55',actual_time:'12:55',status:'Ankommet',source:'Bane NOR Togkart'};
+  const lagging={...planned,time:'12:56',status:'Forsinket',source:'Bane NOR SIRI SM'};
+  const [merged]=mergeLiveItems([planned],[lagging],[arrived]);
+  assert.equal(merged.status,'Ankommet');
+  assert.equal(merged.actual_time,'12:55');
+  assert.deepEqual(filterLiveItems([merged],'12:55','23:59'),[]);
+});
+
 test('keeps a passed train inside a manually selected window', () => {
   const selected={...baseCall,code:'NYL',planned_iso:'2026-09-27T17:04:58+02:00',aimed_departure_iso:'2026-09-27T17:04:58+02:00'};
   const later={...baseCall,code:'GRO',actual_iso:'2026-09-27T17:03:39+02:00',actual_departure_iso:'2026-09-27T17:03:39+02:00',state:'recorded'};
@@ -529,6 +539,36 @@ test('shows an overnight work train on the selected next day with its full inter
   } finally {
     globalThis.fetch=originalFetch;
   }
+});
+
+test('builds a complete overnight track notice when its endpoints are split across graph parts', () => {
+  const merged=mergeDailyGraphResponses([{
+    date:'2026-10-22',graphs_loaded:1,
+    possible_work_trains:[{
+      journey_id:'graph:early',train_no:'56951',line_number:24,work_hint:true,
+      route:[{code:'HLD',time:'07:00',minute:420}],
+    }],
+    operational_markers:[{train_no:'56951',line_number:24,station_code:'HLD',time:'07:00',minute:420,work_hint:true}],
+    operational_sections:[
+      {train_no:'56951',line_number:24,time:'01:52',minute:112,section_codes:['HLD','BG']},
+      {train_no:'56951',line_number:24,time:'03:54',minute:234,section_codes:['HLD','BG']},
+    ],
+  },{
+    date:'2026-10-22',graphs_loaded:1,
+    possible_work_trains:[{
+      journey_id:'graph:late',train_no:'56951',line_number:24,work_hint:true,
+      route:[{code:'HLD',time:'22:51',minute:1371}],
+    }],
+    operational_markers:[],operational_sections:[],
+  }],2,'2026-10-22');
+  const notices=buildGraphOperationalNotices(merged,'2026-10-22','HLD',[
+    {code:'HLD',name:'Halden'},{code:'BG',name:'Berg'},
+  ]);
+  assert.ok(notices.some(notice=>
+    notice.trainNo==='56951' &&
+    notice.startsAt==='2026-10-21T22:51:00+02:00' &&
+    notice.endsAt==='2026-10-22T07:00:00+02:00'
+  ));
 });
 
 test('labels blue graph trains as Bane NOR ordered and other unknown graph trains as unknown', async () => {
