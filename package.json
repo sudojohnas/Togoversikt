@@ -19,5 +19,10 @@
   "devDependencies": {
     "esbuild": "0.28.2",
     "wrangler": "4.149.0"
+  },
+  "overrides": {
+    "miniflare": {
+      "undici": "7.30.1"
+    }
   }
 }
