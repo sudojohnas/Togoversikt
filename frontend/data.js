@@ -103,22 +103,17 @@ export async function searchLocations(q, limit=15) {
   }).filter(Boolean).sort((a,b)=>a.rank-b.rank || a.distance-b.distance || a.item.name.length-b.item.name.length || a.item.name.localeCompare(b.item.name,'no'))
     .slice(0,limit).map(x=>x.item);
 }
-async function resolveLocation(value) {
-  const items=await locations(), key=searchKey(String(value).trim());
-  const exact=items.find(x=>searchKey(x.code)===key || searchKey(x.name)===key);
-  return exact || (await searchLocations(value,1))[0] || null;
-}
 export async function nearestLocation(lat, lon) {
   const p=new URLSearchParams({lat:String(lat),lon:String(lon)});
   const r=await fetch(`/api/nearest?${p}`); const data=await r.json();
-  if(!r.ok) throw new Error(data?.detail || 'Fant ikke nærmeste stasjon');
+  if(!r.ok) throw new Error(data?.detail || 'Fant ikke nærmeste jernbanested');
+  const items=await locations();
   for(const feature of data.features || []) {
-    const name=String(feature?.properties?.name || '').trim();
-    const candidates=[name];
-    for(const suffix of [' stasjon',' holdeplass']) if(name.toLocaleLowerCase('no').endsWith(suffix)) candidates.push(name.slice(0,-suffix.length).trim());
-    for(const candidate of candidates) { const found=await resolveLocation(candidate); if(found) return found; }
+    const code=feature?.properties?.code;
+    const found=items.find(item=>item.code===code);
+    if(found) return found;
   }
-  throw new Error('Fant ingen nærliggende jernbanestasjon');
+  throw new Error('Fant ingen nærliggende jernbanesteder');
 }
 function deepValue(obj,key) {
   if(!obj || typeof obj!=='object') return null;

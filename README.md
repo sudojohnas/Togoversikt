@@ -61,7 +61,17 @@ printf '%s' 'https://ntfy.sh/topic' | npx wrangler secret put NTFY_TOPIC_URL
 - Bane NOR SIRI: stop monitoring, estimated timetable og production timetable.
 - Bane NOR Togkart: filtreres i Worker til valgt sted før data sendes til klienten.
 - Bane NOR daglige rutegrafer: PDF-er kontrolleres av cron hvert 15. minutt.
-- Entur Geocoder: brukes bare til å finne nærmeste jernbanested.
+- Min posisjon: sammenligner avstand til kartfestede jernbanesteder fra Bane NOR
+  og eksakte stasjonsnavn fra Entur Geocoder. Blokkposter er med i samme søk.
+- `src/location-coordinates.json` inneholder WGS84-koordinater fra Banekarts
+  Banenettverk (stasjonslag 3, kilometerpunktlag 7 og sporgeometri i lag 13).
+  Blokkpostenes kilometer og banetilhørighet ligger i `src/blockpost-chainages.json`,
+  med kildefil fra [Bane NORs grafiske togruter R26](https://www.banenor.no/for-deg-i-bransjen/togselskap/kapasitetsfordeling/grafiske-togruter/).
+  Koordinatene beregnes langs sporet mellom de to nærmeste kilometerpunktene.
+  Ved parallelle baner må banetilhørighet kontrolleres før nye punkter legges til.
+  Kjør `node scripts/update-location-coordinates.mjs` for å oppdatere kartgrunnlaget.
+  Steder uten dokumenterte koordinater beholdes i tekstsøket. Entur supplerer
+  passasjerstasjoner og kan falle ut uten å stoppe det lokale posisjonssøket.
 
 Ved feil: kontroller `/health`, Workers Logs/Issues, siste deploy og ntfy. Alle
 datakilder behandles som informative; løsningen er ikke sikkerhetskritisk.

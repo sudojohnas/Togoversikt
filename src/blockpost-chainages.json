@@ -1,0 +1,716 @@
+{
+  "AKR": {
+    "name": "Åkrene Bp",
+    "track": "KVGB",
+    "km": 25.16,
+    "graph": "blad-1h-lillestrom---charlottenberg.pdf"
+  },
+  "ART": {
+    "name": "Arteid Bp.",
+    "track": "GARB",
+    "km": 33.42,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "AUS": {
+    "name": "Austvoll Bp",
+    "track": "BRGB",
+    "km": 160.9,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "AVI": {
+    "name": "Akersvika Bp",
+    "track": "DOVB",
+    "km": 123.24,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "BJG": {
+    "name": "Bjørge Bp",
+    "track": "GJKB",
+    "km": 64.7,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "BJS": {
+    "name": "Bjørnstad Bp",
+    "track": "OBVL",
+    "km": 115.7,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "BKK": {
+    "name": "Brekka Bp",
+    "track": "DOVB",
+    "km": 271.33,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "BLI": {
+    "name": "Bleiken Bp",
+    "track": "GJKB",
+    "km": 81.78,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "BLM": {
+    "name": "Blommenholm Bp.",
+    "track": "DRMB",
+    "km": 12.35,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "BRK": {
+    "name": "Breiskallen Bp",
+    "track": "GJKB",
+    "km": 115.1,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "DNM": {
+    "name": "Dønnum Bp",
+    "track": "HVDB",
+    "km": 64.51,
+    "graph": "blad-9-skoyen---oslo-s---eidsvoll.pdf"
+  },
+  "DOR": {
+    "name": "Dorr Bp",
+    "track": "DOVB",
+    "km": 73.36,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "DRI": {
+    "name": "Driva Bp",
+    "track": "DOVB",
+    "km": 418.59,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "DRU": {
+    "name": "Dallerud Bp",
+    "track": "DOVB",
+    "km": 180.2,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "EKØ": {
+    "name": "Eikonrød Bp",
+    "track": "BRAB",
+    "km": 183.57,
+    "graph": "blad-21-drammen---larvik---nordagutu.pdf"
+  },
+  "ENG": {
+    "name": "Enger Bp.",
+    "track": "GARB",
+    "km": 28.0,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "FGL": {
+    "name": "Fagerlia Bp",
+    "track": "OFTB",
+    "km": 34.48,
+    "graph": "blad-16-ofotbanen.pdf"
+  },
+  "FHM": {
+    "name": "Fjellhamar Bp.",
+    "track": "HVDB",
+    "km": 16.17,
+    "graph": "blad-9-skoyen---oslo-s---eidsvoll.pdf"
+  },
+  "FJR": {
+    "name": "Fjellsrud Bp.",
+    "track": "GARB",
+    "km": 11.67,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "FOL": {
+    "name": "Follvell Bp",
+    "track": "KVGB",
+    "km": 54.46,
+    "graph": "blad-1h-lillestrom---charlottenberg.pdf"
+  },
+  "FRY": {
+    "name": "Frya Bp",
+    "track": "DOVB",
+    "km": 246.6,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "FUB": {
+    "name": "Furuberget Bp",
+    "track": "DOVB",
+    "km": 129.79,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "GLI": {
+    "name": "Granli Bp",
+    "track": "KVGB",
+    "km": 107.39,
+    "graph": "blad-1h-lillestrom---charlottenberg.pdf"
+  },
+  "GRI": {
+    "name": "Grimsrud Bp.",
+    "track": "OBVL",
+    "km": 49.2,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "GRN": {
+    "name": "Gran Bp",
+    "track": "GJKB",
+    "km": 67.84,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "GRÅ": {
+    "name": "Greåker Bp",
+    "track": "OBVL",
+    "km": 104.03,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "HBY": {
+    "name": "Huseby Bp.",
+    "track": "DRMB",
+    "km": 47.99,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "HER": {
+    "name": "Hunder Bp",
+    "track": "DOVB",
+    "km": 196.57,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "HGM": {
+    "name": "Helgemo Bp",
+    "track": "DOVB",
+    "km": 517.69,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "HIN": {
+    "name": "Hinna Bp.",
+    "track": "SORB",
+    "km": 591.79,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "HOG": {
+    "name": "Hognestad Bp",
+    "track": "SORB",
+    "km": 565.25,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "HOM": {
+    "name": "Holm Bp.",
+    "track": "VESB",
+    "km": 76.2,
+    "graph": "blad-21-drammen---larvik---nordagutu.pdf"
+  },
+  "HOR": {
+    "name": "Horisontalen Bp",
+    "track": "OFTB",
+    "km": 25.58,
+    "graph": "blad-16-ofotbanen.pdf"
+  },
+  "HOS": {
+    "name": "Holstad Bp.",
+    "track": "OBVL",
+    "km": 25.95,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "HUG": {
+    "name": "Haugan Bp",
+    "track": "NORB",
+    "km": 15.67,
+    "graph": "blad-14-grong---trondheim-s.pdf"
+  },
+  "HVÅ": {
+    "name": "Holmvassås Bp",
+    "track": "NORB",
+    "km": 339.08,
+    "graph": "blad-15-bodo---grong.pdf"
+  },
+  "HYK": {
+    "name": "Hynnekleiv Bp",
+    "track": "SORB",
+    "km": 297.35,
+    "graph": "blad-18-nordagutu---kristiansand.pdf"
+  },
+  "HÅB": {
+    "name": "Holtsås Bp",
+    "track": "SORB",
+    "km": 140.93,
+    "graph": "blad-17-drammen---neslandsvatn.pdf"
+  },
+  "HØY": {
+    "name": "Høye Bp",
+    "track": "SORB",
+    "km": 393.36,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "KJM": {
+    "name": "Kjerringmyrene Bp.",
+    "track": "GARB",
+    "km": 8.51,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "KJØ": {
+    "name": "Kjørum Bp",
+    "track": "DOVB",
+    "km": 280.42,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "KOK": {
+    "name": "Kokkerud Bp",
+    "track": "ASRB",
+    "km": 11.89,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "KOS": {
+    "name": "Kolstad Bp",
+    "track": "DOVB",
+    "km": 544.11,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "KPP": {
+    "name": "Kleppe Bp",
+    "track": "SORB",
+    "km": 169.91,
+    "graph": "blad-17-drammen---neslandsvatn.pdf"
+  },
+  "KRK": {
+    "name": "Kråkvål Bp",
+    "track": "DOVB",
+    "km": 72.91,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "KST": {
+    "name": "Krogstad Bp",
+    "track": "DOVB",
+    "km": 504.44,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "KUT": {
+    "name": "Kutjern Bp",
+    "track": "GJKB",
+    "km": 91.73,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "KVH": {
+    "name": "Kvarehei Bp",
+    "track": "SORB",
+    "km": 335.76,
+    "graph": "blad-18-nordagutu---kristiansand.pdf"
+  },
+  "KÅL": {
+    "name": "Kvål Bp",
+    "track": "DOVB",
+    "km": 524.77,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "LAB": {
+    "name": "Lagerud Bp.B",
+    "track": "ASRB",
+    "km": 17.78,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "LBU": {
+    "name": "Ljabru Bp.",
+    "track": "OBVL",
+    "km": 8.07,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "LDL": {
+    "name": "Lurudal Bp",
+    "track": "NORB",
+    "km": 205.45,
+    "graph": "blad-14-grong---trondheim-s.pdf"
+  },
+  "LDN": {
+    "name": "Langodden Bp",
+    "track": "DOVB",
+    "km": 136.25,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "LIN": {
+    "name": "Lindmoen Bp",
+    "track": "NORB",
+    "km": 273.87,
+    "graph": "blad-15-bodo---grong.pdf"
+  },
+  "LLD": {
+    "name": "Lilledal Bp",
+    "track": "OBVL",
+    "km": 141.85,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "LNE": {
+    "name": "Lunner Bp",
+    "track": "GJKB",
+    "km": 60.91,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "LSB": {
+    "name": "Leirsund Bp.",
+    "track": "GARB",
+    "km": 26.56,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "LVL": {
+    "name": "Leivoll Bp",
+    "track": "SORB",
+    "km": 412.25,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "MLI": {
+    "name": "Mellingen Bp",
+    "track": "NORB",
+    "km": 305.82,
+    "graph": "blad-15-bodo---grong.pdf"
+  },
+  "MOB": {
+    "name": "Molbekk Bp",
+    "track": "OBVL",
+    "km": 56.2,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "MRA": {
+    "name": "Myra Bp",
+    "track": "DOVB",
+    "km": 302.99,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "MVB": {
+    "name": "Melvoll Bp.",
+    "track": "GARB",
+    "km": 29.77,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "MØL": {
+    "name": "Møllerenga Bp",
+    "track": "OBVL",
+    "km": 19.88,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "NEA": {
+    "name": "Nessa Bp",
+    "track": "GARB",
+    "km": 66.72,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "NIS": {
+    "name": "Nisterud Bp",
+    "track": "BRAB",
+    "km": 168.52,
+    "graph": "blad-21-drammen---larvik---nordagutu.pdf"
+  },
+  "NOR": {
+    "name": "Nordli Bp",
+    "track": "DOVB",
+    "km": 208.08,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "NOS": {
+    "name": "Nordstrand Bp.",
+    "track": "OBVL",
+    "km": 5.65,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "OLA": {
+    "name": "Olaløkka Bp.",
+    "track": "GARB",
+    "km": 48.66,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "ORN": {
+    "name": "Orne elv Bp",
+    "track": "OFTB",
+    "km": 17.45,
+    "graph": "blad-16-ofotbanen.pdf"
+  },
+  "POT": {
+    "name": "Potterud Bp",
+    "track": "DOVB",
+    "km": 219.32,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "PTB": {
+    "name": "Prestebakke Bp",
+    "track": "OBVL",
+    "km": 159.0,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "RAM": {
+    "name": "Ramstad Bp.",
+    "track": "DRMB",
+    "km": 11.68,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "RAN": {
+    "name": "Randklev Bp",
+    "track": "DOVB",
+    "km": 237.74,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "RKR": {
+    "name": "Ringsaker Bp",
+    "track": "DOVB",
+    "km": 152.48,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "RLR": {
+    "name": "Rallerud Bp",
+    "track": "BRGB",
+    "km": 120.07,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "RNM": {
+    "name": "Rotneim Bp",
+    "track": "BRGB",
+    "km": 210.66,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "RO": {
+    "name": "Rosten Bp",
+    "track": "DOVB",
+    "km": 315.83,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "ROH": {
+    "name": "Rosenholm Bp.",
+    "track": "OBVL",
+    "km": 11.15,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "RSM": {
+    "name": "Rismyr Bp.",
+    "track": "GARB",
+    "km": 57.72,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "RÅS": {
+    "name": "Røykås Bp.",
+    "track": "GARB",
+    "km": 10.1,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "SAE": {
+    "name": "Sande Bp.",
+    "track": "VESB",
+    "km": 73.03,
+    "graph": "blad-21-drammen---larvik---nordagutu.pdf"
+  },
+  "SAV": {
+    "name": "Stavne Bp",
+    "track": "DOVB",
+    "km": 548.82,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "SBT": {
+    "name": "Solbråtan Bp.",
+    "track": "OBVL",
+    "km": 14.6,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "SDB": {
+    "name": "Sandbu Bp",
+    "track": "DOVB",
+    "km": 291.5,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "SEU": {
+    "name": "Seut Bp",
+    "track": "OBVL",
+    "km": 89.98,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "SHG": {
+    "name": "Stangerhaugen Bp.",
+    "track": "GARB",
+    "km": 39.51,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "SJB": {
+    "name": "Skjelbred Bp",
+    "track": "SORB",
+    "km": 529.13,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "SJØ": {
+    "name": "Sjølyst Bp",
+    "track": "NORB",
+    "km": 10.24,
+    "graph": "blad-14-grong---trondheim-s.pdf"
+  },
+  "SKE": {
+    "name": "Skeievoll Bp",
+    "track": "DOVB",
+    "km": 337.33,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "SKG": {
+    "name": "Skoger Bp.",
+    "track": "VESB",
+    "km": 64.14,
+    "graph": "blad-21-drammen---larvik---nordagutu.pdf"
+  },
+  "SKR": {
+    "name": "Skrårud Bp.",
+    "track": "DOVB",
+    "km": 86.51,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "SKÅ": {
+    "name": "Skåntjern Bp.",
+    "track": "GARB",
+    "km": 47.51,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "SLJ": {
+    "name": "Selje Bp.",
+    "track": "GARB",
+    "km": 31.67,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "SLN": {
+    "name": "Sagdalen Bp.",
+    "track": "HVDB",
+    "km": 18.92,
+    "graph": "blad-9-skoyen---oslo-s---eidsvoll.pdf"
+  },
+  "SLP": {
+    "name": "Slependen Bp.",
+    "track": "DRMB",
+    "km": 16.0,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "SLØ": {
+    "name": "Slørstad Bp.",
+    "track": "OBVL",
+    "km": 27.71,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "SRE": {
+    "name": "Skare Bp",
+    "track": "BRGB",
+    "km": 465.34,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "SUM": {
+    "name": "Skaugum Bp.",
+    "track": "ASRB",
+    "km": 20.59,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "SVK": {
+    "name": "Svenkerud Bp",
+    "track": "BRGB",
+    "km": 193.7,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "SÅS": {
+    "name": "Sørumåsen Bp.",
+    "track": "DRMB",
+    "km": 45.81,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "SÆR": {
+    "name": "Skjærli Bp",
+    "track": "DOVB",
+    "km": 493.6,
+    "graph": "blad-11-trondheim-s---dombas.pdf"
+  },
+  "SØE": {
+    "name": "Støe Bp",
+    "track": "BRGB",
+    "km": 176.83,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "TMÅ": {
+    "name": "Tanumåsen Bp.",
+    "track": "ASRB",
+    "km": 16.47,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "TUS": {
+    "name": "Tusse Bp.",
+    "track": "OBVL",
+    "km": 19.22,
+    "graph": "blad-3o-vestby---oslo-s---hovik.pdf"
+  },
+  "TVE": {
+    "name": "Tveter Bp.",
+    "track": "OBVL",
+    "km": 34.47,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "TØN": {
+    "name": "Tøyen Bp",
+    "track": "GJKB",
+    "km": 4.96,
+    "graph": "blad-5-skoyen---oslo-s---gjovik.pdf"
+  },
+  "ULR": {
+    "name": "Ulriken Bp",
+    "track": "BRGB",
+    "km": 466.98,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "ULV": {
+    "name": "Ulvin Bp",
+    "track": "DOVB",
+    "km": 83.31,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "VEJ": {
+    "name": "Venjar Bp",
+    "track": "GARB",
+    "km": 64.1,
+    "graph": "blad-99-gardermobanen.pdf"
+  },
+  "VEL": {
+    "name": "Veldre Bp",
+    "track": "DOVB",
+    "km": 144.39,
+    "graph": "blad-10-eidsvoll---dombas.pdf"
+  },
+  "VIR": {
+    "name": "Vieren Bp",
+    "track": "BRGB",
+    "km": 345.0,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "VLU": {
+    "name": "Vaulen Bp",
+    "track": "SORB",
+    "km": 593.31,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "VTN": {
+    "name": "Vatnamot Bp",
+    "track": "SORB",
+    "km": 536.77,
+    "graph": "blad-19-kristiansand---stavanger.pdf"
+  },
+  "VUD": {
+    "name": "Vudu Bp",
+    "track": "NORB",
+    "km": 56.06,
+    "graph": "blad-14-grong---trondheim-s.pdf"
+  },
+  "VÅS": {
+    "name": "Vakås Bp.",
+    "track": "DRMB",
+    "km": 21.49,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "YGR": {
+    "name": "Ygre Bp",
+    "track": "BRGB",
+    "km": 378.54,
+    "graph": "blad-7-honefoss---bergen.pdf"
+  },
+  "ÅSA": {
+    "name": "Åstaddalen Bp.",
+    "track": "ASRB",
+    "km": 19.09,
+    "graph": "blad-8-oslo-s---drammen.pdf"
+  },
+  "ØRM": {
+    "name": "Ørmen Bp",
+    "track": "OBVL",
+    "km": 81.52,
+    "graph": "blad-3fo-skoyen---oslo-s---kornsjo.pdf"
+  },
+  "ØSB": {
+    "name": "Østborg Bp",
+    "track": "NORB",
+    "km": 88.63,
+    "graph": "blad-14-grong---trondheim-s.pdf"
+  }
+}
