@@ -142,11 +142,17 @@ function resetFromToNow() {
   syncPickerButtons();
 }
 
+function selectLocation(location) {
+  $('location').value = location.name;
+  $('location').dataset.code = location.code;
+  $('location').dataset.kind = location.kind;
+  $('blockpost-notice').hidden = location.kind !== 'Blokkpost';
+}
+
 function chooseSuggestion(index) {
   const x = suggestions[index];
   if (!x) return;
-  $('location').value = x.name;
-  $('location').dataset.code = x.code;
+  selectLocation(x);
   lastOperationalNotices = [];
   renderOperationalNotices();
   boardModeManuallySelected = false;
@@ -462,6 +468,8 @@ async function openDetail(itemKey, force=false) {
 }
 $('location').addEventListener('input', () => {
   $('location').dataset.code = '';
+  $('location').dataset.kind = '';
+  $('blockpost-notice').hidden = true;
   lastOperationalNotices = [];
   renderOperationalNotices();
   clearTimeout(searchTimer);
@@ -549,8 +557,7 @@ async function useMyLocation() {
   navigator.geolocation.getCurrentPosition(async pos => {
     try {
       const x = await nearestLocation(pos.coords.latitude, pos.coords.longitude);
-      $('location').value = x.name;
-      $('location').dataset.code = x.code;
+      selectLocation(x);
       lastOperationalNotices = [];
       renderOperationalNotices();
       boardModeManuallySelected = false;

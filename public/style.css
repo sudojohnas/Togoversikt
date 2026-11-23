@@ -285,3 +285,7 @@
   :root[data-theme="dark"] .route-cell{border-top-color:rgba(190,211,227,.16)!important;color:#c5d3df}
   :root[data-theme="dark"] .type-cell{color:#c5d3df!important}
 }
+
+/* Compact notice for locations without real-time coverage. */
+.blockpost-notice{margin:9px 0;padding:8px 11px;border:1px solid #d8e2ec;border-left:3px solid #6d8da9;border-radius:6px;background:#f2f6fa;color:#40566b;font-size:12px;line-height:1.45}
+:root[data-theme="dark"] .blockpost-notice{background:#142b3e;border-color:#365068;border-left-color:#7ea4c6;color:#c4d6e5}
