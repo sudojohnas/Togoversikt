@@ -28,5 +28,26 @@
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
+  },
+  "previews": {
+    "version_metadata": {
+      "binding": "CF_VERSION_METADATA"
+    },
+    "ratelimits": [
+      {
+        "name": "EXPENSIVE_RATE_LIMITER",
+        "namespace_id": "104730",
+        "simple": {
+          "limit": 120,
+          "period": 60
+        }
+      }
+    ],
+    "kv_namespaces": [
+      {
+        "binding": "ROUTE_GRAPHS",
+        "id": "0c179a3e0d614d5394c3ea2dbb47d340"
+      }
+    ]
   }
 }

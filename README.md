@@ -13,6 +13,11 @@ Dette repoet inneholder Cloudflare-versjonen av Togoversikt.no.
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy`
 
+Forhåndsbygg av PR-er bruker `npx wrangler preview`. `wrangler.jsonc` har en
+`previews`-blokk med egen KV-hurtigbuffer og eget namespace for ratebegrensning.
+Versjonsmetadata er også bundet i forhåndsvisningen. Cron-jobber kjøres bare i
+produksjon; de støttes ikke av Cloudflare Previews.
+
 Original FastAPI/Docker-versjon beholdes separat på Debian-serveren og ligger ikke i dette repoet.
 
 ## Lokal utvikling
