@@ -1,6 +1,7 @@
 import { DAILY_GRAPH_COUNT, extractDailyGraphData, graphResponseVersion, graphUrl, matchCandidateTrainNumbers } from './daily-graphs.js';
 import STATION_GRAPH_LINES from './station-graph-map.json' with { type: 'json' };
 import LOCATIONS from '../public/locations.json' with { type: 'json' };
+import { nearestFeatures } from './nearest-locations.js';
 import { filterEstimatedTimetableXml, filterProductionTimetableXml } from './pt-filter.js';
 
 const SIRI = 'https://siri.banenor.no/jbv';
@@ -521,12 +522,18 @@ async function proxyNearest(request) {
   upstream.searchParams.set('categories', 'railStation');
   upstream.searchParams.set('boundary.country', 'NOR');
   upstream.searchParams.set('boundary.circle.radius', '20000');
-  const response = await fetchUpstream(upstream.toString(), {
-    headers: { 'ET-Client-Name': 'johnas-togoversikt' },
-    cf: { cacheTtl: 60 },
+  let upstreamFeatures=[];
+  try {
+    const response=await fetchUpstream(upstream.toString(),{
+      headers:{'ET-Client-Name':'johnas-togoversikt'},cf:{cacheTtl:60},
+    });
+    if(response.ok) upstreamFeatures=(await response.json()).features || [];
+  } catch {
+    // Railway coordinates also cover stations and block posts when Entur is unavailable.
+  }
+  return Response.json({type:'FeatureCollection',features:nearestFeatures(lat,lon,upstreamFeatures)},{
+    headers:{'Cache-Control':'private, max-age=60'},
   });
-  const headers=upstreamHeaders(response,'private, max-age=60','Entur Geocoder','application/json; charset=utf-8');
-  return new Response(response.body, { status: response.status, headers });
 }
 
 export default {
